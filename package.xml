@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>frenet_planner</name>
+  <name>qp_planner</name>
   <version>0.0.0</version>
   <description>The frenet_planning package</description>
 

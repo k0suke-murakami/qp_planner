@@ -16,11 +16,11 @@
 
 #include <ros/ros.h>
 
-#include "frenet_planner_ros.h"
+#include "qp_planner_ros.h"
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "frenet_planner");
+  ros::init(argc, argv, "qp_planner");
   FrenetPlannerROS node;
   ros::spin();
   return 0;

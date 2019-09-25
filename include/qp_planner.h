@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FRENET_PLANNER_H
-#define FRENET_PLANNER_H
+#ifndef qp_planner_H
+#define qp_planner_H
 
 
 #include <geometry_msgs/TransformStamped.h>

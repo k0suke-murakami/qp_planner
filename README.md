@@ -2,18 +2,18 @@
 
 ### How to build
 * colcon
-  - `colcon build --packages-up-to frenet_planner`
-  - `colcon build --packages-select frenet_planner`
+  - `colcon build --packages-up-to qp_planner`
+  - `colcon build --packages-select qp_planner`
 * catkin_make
-  - `catkin_make --pkg frenet_planner`
+  - `catkin_make --pkg qp_planner`
 
 
 ### How to launch
 
 * From a sourced terminal:
 
-    - `roslaunch frenet_planner frenet_planner.launch`
-    - `roslaunch frenet_planner frenet_planner.launch obstacle_radius_from_center_point:=2.0 linear_velocity_kmh:=5.0 only_testing_modified_global_path:=false min_radius:=1.6`
+    - `roslaunch qp_planner qp_planner.launch`
+    - `roslaunch qp_planner qp_planner.launch obstacle_radius_from_center_point:=2.0 linear_velocity_kmh:=5.0 only_testing_modified_global_path:=false min_radius:=1.6`
 
 
 ### Parameters
@@ -51,4 +51,4 @@ Launch file available parameters:
 |Topic|Type|Objective|
 ------|----|---------
 |`/final_waypoints`|`autoware_msgs::Lane`|WIP|
-|`/frenet_planner_debug_markes`|`visualization_msgs::MarkerArray`|WIP|
+|`/qp_planner_debug_markes`|`visualization_msgs::MarkerArray`|WIP|

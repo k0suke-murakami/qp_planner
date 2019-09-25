@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(frenet_planner)
+project(qp_planner)
 
 add_compile_options(-std=c++11)
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -78,27 +78,27 @@ include_directories(
 
 )
 
-add_executable(frenet_planner
-  src/frenet_planner_node.cpp
-  src/frenet_planner_ros.cpp
-  src/frenet_planner.cpp
+add_executable(qp_planner
+  src/qp_planner_node.cpp
+  src/qp_planner_ros.cpp
+  src/qp_planner.cpp
   src/vectormap_ros.cpp
   src/calculate_center_line.cpp
   src/modified_reference_path_generator.cpp
 )
 
-target_link_libraries(frenet_planner
+target_link_libraries(qp_planner
   ${catkin_LIBRARIES}
   distance_transform
 )
 
-add_dependencies(frenet_planner
+add_dependencies(qp_planner
   ${catkin_EXPORTED_TARGETS}
   distance_transform
 )
 
 install(TARGETS
-        frenet_planner
+        qp_planner
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

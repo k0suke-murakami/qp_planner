@@ -7,7 +7,7 @@
 //headers in Eigen
 #include <Eigen/Dense>
 
-#include "frenet_planner.h"
+#include "qp_planner.h"
 #include "vectormap_struct.h"
 
 #include <numeric>

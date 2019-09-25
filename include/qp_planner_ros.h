@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef FRENET_PLANNER_ROS_H
-#define FRENET_PLANNER_ROS_H
+#ifndef qp_planner_ROS_H
+#define qp_planner_ROS_H
 
 struct Point;
 
@@ -102,7 +102,7 @@ private:
   std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
   std::unique_ptr<grid_map_msgs::GridMap> in_gridmap_ptr_;
   
-  std::unique_ptr<FrenetPlanner> frenet_planner_ptr_;
+  std::unique_ptr<FrenetPlanner> qp_planner_ptr_;
   std::unique_ptr<VectorMap> vectormap_load_ptr_;
   std::unique_ptr<CalculateCenterLine> calculate_center_line_ptr_;
   std::unique_ptr<ModifiedReferencePathGenerator> modified_reference_path_generator_ptr_;

@@ -15,7 +15,7 @@
   <arg name="linear_velocity_kmh" default="5.0"/>
   <arg name="only_testing_modified_global_path" default="false"/>
   <arg name="min_radius" default="1.6"/>
-  <node pkg="frenet_planner" type="frenet_planner" name="frenet_planner" output="screen">
+  <node pkg="qp_planner" type="qp_planner" name="qp_planner" output="screen">
     <param name="initial_velocity_kmh"  value="$(arg initial_velocity_kmh)" />
     <param name="velcity_kmh_before_obstalcle"        value="$(arg velcity_kmh_before_obstalcle)" />
     <param name="distance_before_obstacle"   value="$(arg distance_before_obstacle)" />

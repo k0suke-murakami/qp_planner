@@ -37,13 +37,13 @@
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <grid_map_msgs/GridMap.h>
 
-#include "frenet_planner.h"
+#include "qp_planner.h"
 #include "vectormap_ros.h"
 #include "vectormap_struct.h"
 #include "calculate_center_line.h"
 #include "modified_reference_path_generator.h"
 
-#include "frenet_planner_ros.h"
+#include "qp_planner_ros.h"
 
 FrenetPlannerROS::FrenetPlannerROS()
   : nh_(), 
@@ -94,7 +94,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
   double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
   double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
-  frenet_planner_ptr_.reset(
+  qp_planner_ptr_.reset(
     new FrenetPlanner(
         initial_velocity_ms,
         velocity_ms_before_obstacle,
@@ -129,7 +129,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   
   
   optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("safety_waypoints", 1, true);
-  markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("frenet_planner_debug_markes", 1, true);
+  markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("qp_planner_debug_markes", 1, true);
   gridmap_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("gridmap_pointcloud", 1, true);
   final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &FrenetPlannerROS::waypointsCallback, this);
   current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
@@ -397,7 +397,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       
       
       // // TODO: somehow improve interface
-      frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
+      qp_planner_ptr_->doPlan(*in_pose_ptr_, 
                                   *in_twist_ptr_, 
                                   local_center_points, 
                                   local_reference_waypoints,
