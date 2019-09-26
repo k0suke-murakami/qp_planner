@@ -56,6 +56,7 @@ find_package(catkin REQUIRED COMPONENTS
   autoware_msgs
   vector_map
   grid_map_ros
+  qpoases_vendor
 )
 
 find_package(Eigen3 REQUIRED)
@@ -68,6 +69,7 @@ catkin_package(
   autoware_msgs
   vector_map
   grid_map_ros
+  qpoases_vendor
 )
 
 
@@ -75,7 +77,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
-
+  ${qpoases_vendor_INCLUDE_DIRS}/qpoases_vendor
 )
 
 add_executable(qp_planner

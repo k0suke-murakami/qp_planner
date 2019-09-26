@@ -10,6 +10,8 @@
 
 #include <distance_transform/distance_transform.hpp>
 
+#include <qpOASES.hpp>
+
 #include "modified_reference_path_generator.h"
 
 
