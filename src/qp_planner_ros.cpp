@@ -435,25 +435,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
     
-    // // visualize debug target point
-    // visualization_msgs::Marker debug_target_point;
-    // debug_target_point.lifetime = ros::Duration(0.2);
-    // debug_target_point.header = in_pose_ptr_->header;
-    // debug_target_point.ns = std::string("debug_target_point_marker");
-    // debug_target_point.action = visualization_msgs::Marker::MODIFY;
-    // debug_target_point.pose.orientation.w = 1.0;
-    // debug_target_point.id = unique_id;
-    // debug_target_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    // debug_target_point.scale.x = 0.9;
-    // debug_target_point.color.r = 1.0f;
-    // debug_target_point.color.g = 1.0f;
-    // debug_target_point.color.a = 1;
-    // for(const auto& point: out_target_points)
-    // {
-    //   debug_target_point.points.push_back(point);
-    // }
-    // points_marker_array.markers.push_back(debug_target_point);
-    // unique_id++;
     
     // visualize debug modified reference point
     visualization_msgs::Marker debug_modified_reference_points;
@@ -475,128 +456,67 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     points_marker_array.markers.push_back(debug_modified_reference_points);
     unique_id++;
     
-     // visualize debug modified smoothed reference point
-    visualization_msgs::Marker debug_modified_smoothed_reference_points;
-    debug_modified_smoothed_reference_points.lifetime = ros::Duration(0.2);
-    debug_modified_smoothed_reference_points.header = in_pose_ptr_->header;
-    debug_modified_smoothed_reference_points.ns = std::string("debug_modified_smoothed_reference_points");
-    debug_modified_smoothed_reference_points.action = visualization_msgs::Marker::MODIFY;
-    debug_modified_smoothed_reference_points.pose.orientation.w = 1.0;
-    debug_modified_smoothed_reference_points.id = unique_id;
-    debug_modified_smoothed_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_modified_smoothed_reference_points.scale.x = 0.9;
-    debug_modified_smoothed_reference_points.color.r = 1.0f;
-    debug_modified_smoothed_reference_points.color.a = 0.6;
-    for(const auto& waypoint: debug_modified_smoothed_reference_path)
-    {
-      debug_modified_smoothed_reference_points.points.push_back(waypoint.pose.pose.position);
-    }
-    points_marker_array.markers.push_back(debug_modified_smoothed_reference_points);
-    unique_id++;
-    
-     // visualize debug bspline
-    visualization_msgs::Marker debug_bspline_path_marker;
-    debug_bspline_path_marker.lifetime = ros::Duration(0.2);
-    debug_bspline_path_marker.header = in_pose_ptr_->header;
-    debug_bspline_path_marker.ns = std::string("debug_bspline_path_marker");
-    debug_bspline_path_marker.action = visualization_msgs::Marker::MODIFY;
-    debug_bspline_path_marker.pose.orientation.w = 1.0;
-    debug_bspline_path_marker.id = unique_id;
-    debug_bspline_path_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_bspline_path_marker.scale.x = 0.9;
-    debug_bspline_path_marker.color.r = 1.0f;
-    debug_bspline_path_marker.color.a = 1;
-    for(const auto& waypoint: debug_bspline_path)
-    {
-      debug_bspline_path_marker.points.push_back(waypoint.pose.pose.position);
-    }
-    points_marker_array.markers.push_back(debug_bspline_path_marker);
-    unique_id++;
-    
-    //text modified reference path curvature
-    for (const auto& point: debug_modified_smoothed_reference_path)
-    {
-      visualization_msgs::Marker debuf_modified_curvature_text;
-      debuf_modified_curvature_text.lifetime = ros::Duration(0.2);
-      debuf_modified_curvature_text.header = in_pose_ptr_->header;
-      debuf_modified_curvature_text.ns = std::string("debuf_modified_curvature_text");
-      debuf_modified_curvature_text.action = visualization_msgs::Marker::ADD;
-      debuf_modified_curvature_text.id = unique_id;
-      debuf_modified_curvature_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-      debuf_modified_curvature_text.scale.x = 1;
-      debuf_modified_curvature_text.scale.y = 0.1;
-      debuf_modified_curvature_text.scale.z = 0.4;
-
-      // texts are green
-      debuf_modified_curvature_text.color.g = 1.0f;
-      debuf_modified_curvature_text.color.a = 1.0;
-      
-      
-      geometry_msgs::Point relative_p;
-      relative_p.y = 0.8;
-      geometry_msgs::Pose pose;
-      pose.position = point.pose.pose.position;
-      pose.orientation.x = 0;
-      pose.orientation.y = 0;
-      pose.orientation.z = 0;
-      pose.orientation.w = 1.0;
-      tf::Transform inverse;
-      tf::poseMsgToTF(pose, inverse);
-
-      tf::Point p;
-      pointMsgToTF(relative_p, p);
-      tf::Point tf_p = inverse * p;
-      geometry_msgs::Point tf_point_msg;
-      pointTFToMsg(tf_p, tf_point_msg);
-      debuf_modified_curvature_text.pose.position = tf_point_msg;
-      debuf_modified_curvature_text.text = std::to_string(point.cost);
-      
-      unique_id++;
-      
-      points_marker_array.markers.push_back(debuf_modified_curvature_text); 
-    }
-    
-    // // visualize debug goal point
-    // visualization_msgs::Marker debug_goal_point;
-    // debug_goal_point.lifetime = ros::Duration(0.2);
-    // debug_goal_point.header = in_pose_ptr_->header;
-    // debug_goal_point.ns = std::string("debug_goal_point_marker");
-    // debug_goal_point.action = visualization_msgs::Marker::MODIFY;
-    // debug_goal_point.pose.orientation.w = 1.0;
-    // debug_goal_point.id = unique_id;
-    // debug_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    // debug_goal_point.scale.x = 0.9;
-    // debug_goal_point.color.r = 0.0f;
-    // debug_goal_point.color.g = 1.0f;
-    // debug_goal_point.color.a = 1;
-    // debug_goal_point.points.push_back(goal_point);
-    // points_marker_array.markers.push_back(debug_goal_point);
+    //  // visualize debug modified smoothed reference point
+    // visualization_msgs::Marker debug_modified_smoothed_reference_points;
+    // debug_modified_smoothed_reference_points.lifetime = ros::Duration(0.2);
+    // debug_modified_smoothed_reference_points.header = in_pose_ptr_->header;
+    // debug_modified_smoothed_reference_points.ns = std::string("debug_modified_smoothed_reference_points");
+    // debug_modified_smoothed_reference_points.action = visualization_msgs::Marker::MODIFY;
+    // debug_modified_smoothed_reference_points.pose.orientation.w = 1.0;
+    // debug_modified_smoothed_reference_points.id = unique_id;
+    // debug_modified_smoothed_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    // debug_modified_smoothed_reference_points.scale.x = 0.9;
+    // debug_modified_smoothed_reference_points.color.r = 1.0f;
+    // debug_modified_smoothed_reference_points.color.a = 0.6;
+    // for(const auto& waypoint: debug_modified_smoothed_reference_path)
+    // {
+    //   debug_modified_smoothed_reference_points.points.push_back(waypoint.pose.pose.position);
+    // }
+    // points_marker_array.markers.push_back(debug_modified_smoothed_reference_points);
     // unique_id++;
     
-    // //text
-    // size_t debug_reference_point_id = 0;
-    // for (const auto& point: out_target_points)
+    //  // visualize debug bspline
+    // visualization_msgs::Marker debug_bspline_path_marker;
+    // debug_bspline_path_marker.lifetime = ros::Duration(0.2);
+    // debug_bspline_path_marker.header = in_pose_ptr_->header;
+    // debug_bspline_path_marker.ns = std::string("debug_bspline_path_marker");
+    // debug_bspline_path_marker.action = visualization_msgs::Marker::MODIFY;
+    // debug_bspline_path_marker.pose.orientation.w = 1.0;
+    // debug_bspline_path_marker.id = unique_id;
+    // debug_bspline_path_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    // debug_bspline_path_marker.scale.x = 0.9;
+    // debug_bspline_path_marker.color.r = 1.0f;
+    // debug_bspline_path_marker.color.a = 1;
+    // for(const auto& waypoint: debug_bspline_path)
     // {
-    //   visualization_msgs::Marker debug_reference_point_text;
-    //   debug_reference_point_text.lifetime = ros::Duration(0.2);
-    //   debug_reference_point_text.header = in_pose_ptr_->header;
-    //   debug_reference_point_text.ns = std::string("debug_reference_point_text");
-    //   debug_reference_point_text.action = visualization_msgs::Marker::ADD;
-    //   debug_reference_point_text.id = unique_id;
-    //   debug_reference_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-    //   debug_reference_point_text.scale.x = 1;
-    //   debug_reference_point_text.scale.y = 0.1;
-    //   debug_reference_point_text.scale.z = 0.4;
+    //   debug_bspline_path_marker.points.push_back(waypoint.pose.pose.position);
+    // }
+    // points_marker_array.markers.push_back(debug_bspline_path_marker);
+    // unique_id++;
+    
+    // //text modified reference path curvature
+    // for (const auto& point: debug_modified_smoothed_reference_path)
+    // {
+    //   visualization_msgs::Marker debuf_modified_curvature_text;
+    //   debuf_modified_curvature_text.lifetime = ros::Duration(0.2);
+    //   debuf_modified_curvature_text.header = in_pose_ptr_->header;
+    //   debuf_modified_curvature_text.ns = std::string("debuf_modified_curvature_text");
+    //   debuf_modified_curvature_text.action = visualization_msgs::Marker::ADD;
+    //   debuf_modified_curvature_text.id = unique_id;
+    //   debuf_modified_curvature_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    //   debuf_modified_curvature_text.scale.x = 1;
+    //   debuf_modified_curvature_text.scale.y = 0.1;
+    //   debuf_modified_curvature_text.scale.z = 0.4;
 
     //   // texts are green
-    //   debug_reference_point_text.color.g = 1.0f;
-    //   debug_reference_point_text.color.a = 1.0;
+    //   debuf_modified_curvature_text.color.g = 1.0f;
+    //   debuf_modified_curvature_text.color.a = 1.0;
       
       
     //   geometry_msgs::Point relative_p;
     //   relative_p.y = 0.8;
     //   geometry_msgs::Pose pose;
-    //   pose.position = point;
+    //   pose.position = point.pose.pose.position;
     //   pose.orientation.x = 0;
     //   pose.orientation.y = 0;
     //   pose.orientation.z = 0;
@@ -609,66 +529,127 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     //   tf::Point tf_p = inverse * p;
     //   geometry_msgs::Point tf_point_msg;
     //   pointTFToMsg(tf_p, tf_point_msg);
-    //   debug_reference_point_text.pose.position = tf_point_msg;
-    //   debug_reference_point_text.text = std::to_string(debug_reference_point_id);
-    //   debug_reference_point_id ++;
+    //   debuf_modified_curvature_text.pose.position = tf_point_msg;
+    //   debuf_modified_curvature_text.text = std::to_string(point.cost);
       
     //   unique_id++;
       
-    //   points_marker_array.markers.push_back(debug_reference_point_text); 
+    //   points_marker_array.markers.push_back(debuf_modified_curvature_text); 
     // }
     
-    // //center point text
-    // size_t debug_global_point_id = 0;
-    // for (const auto& point: local_center_points)
-    // {
-    //   visualization_msgs::Marker debug_center_point_text;
-    //   debug_center_point_text.lifetime = ros::Duration(0.2);
-    //   debug_center_point_text.header = in_pose_ptr_->header;
-    //   debug_center_point_text.ns = std::string("debug_center_point_text");
-    //   debug_center_point_text.action = visualization_msgs::Marker::ADD;
-    //   debug_center_point_text.id = unique_id;
-    //   debug_center_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-    //   debug_center_point_text.scale.x = 1;
-    //   debug_center_point_text.scale.y = 0.1;
-    //   debug_center_point_text.scale.z = 0.4;
+    // // // visualize debug goal point
+    // // visualization_msgs::Marker debug_goal_point;
+    // // debug_goal_point.lifetime = ros::Duration(0.2);
+    // // debug_goal_point.header = in_pose_ptr_->header;
+    // // debug_goal_point.ns = std::string("debug_goal_point_marker");
+    // // debug_goal_point.action = visualization_msgs::Marker::MODIFY;
+    // // debug_goal_point.pose.orientation.w = 1.0;
+    // // debug_goal_point.id = unique_id;
+    // // debug_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
+    // // debug_goal_point.scale.x = 0.9;
+    // // debug_goal_point.color.r = 0.0f;
+    // // debug_goal_point.color.g = 1.0f;
+    // // debug_goal_point.color.a = 1;
+    // // debug_goal_point.points.push_back(goal_point);
+    // // points_marker_array.markers.push_back(debug_goal_point);
+    // // unique_id++;
+    
+    // // //text
+    // // size_t debug_reference_point_id = 0;
+    // // for (const auto& point: out_target_points)
+    // // {
+    // //   visualization_msgs::Marker debug_reference_point_text;
+    // //   debug_reference_point_text.lifetime = ros::Duration(0.2);
+    // //   debug_reference_point_text.header = in_pose_ptr_->header;
+    // //   debug_reference_point_text.ns = std::string("debug_reference_point_text");
+    // //   debug_reference_point_text.action = visualization_msgs::Marker::ADD;
+    // //   debug_reference_point_text.id = unique_id;
+    // //   debug_reference_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    // //   debug_reference_point_text.scale.x = 1;
+    // //   debug_reference_point_text.scale.y = 0.1;
+    // //   debug_reference_point_text.scale.z = 0.4;
 
-    //   // texts are green
-    //   debug_center_point_text.color.g = 1.0f;
-    //   debug_center_point_text.color.a = 1.0;
+    // //   // texts are green
+    // //   debug_reference_point_text.color.g = 1.0f;
+    // //   debug_reference_point_text.color.a = 1.0;
       
       
-    //   geometry_msgs::Point relative_p;
-    //   relative_p.y = 0.8;
-    //   geometry_msgs::Pose pose;
-    //   pose.position.x = point.tx ;
-    //   pose.position.y = point.ty ;
-    //   pose.position.z = in_waypoints_ptr_->waypoints.front().pose.pose.position.z;
-    //   pose.orientation.x = 0;
-    //   pose.orientation.y = 0;
-    //   pose.orientation.z = 0;
-    //   pose.orientation.w = 1.0;
-    //   tf::Transform inverse;
-    //   tf::poseMsgToTF(pose, inverse);
+    // //   geometry_msgs::Point relative_p;
+    // //   relative_p.y = 0.8;
+    // //   geometry_msgs::Pose pose;
+    // //   pose.position = point;
+    // //   pose.orientation.x = 0;
+    // //   pose.orientation.y = 0;
+    // //   pose.orientation.z = 0;
+    // //   pose.orientation.w = 1.0;
+    // //   tf::Transform inverse;
+    // //   tf::poseMsgToTF(pose, inverse);
 
-    //   tf::Point p;
-    //   pointMsgToTF(relative_p, p);
-    //   tf::Point tf_p = inverse * p;
-    //   geometry_msgs::Point tf_point_msg;
-    //   pointTFToMsg(tf_p, tf_point_msg);
-    //   debug_center_point_text.pose.position = tf_point_msg;
-    //   debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
-    //   // debug_center_point_text.text += std::string(" ");
-    //   // debug_center_point_text.text += std::to_string(point.tx);
-    //   // debug_center_point_text.text += std::string(" ");
-    //   // debug_center_point_text.text += std::to_string(point.ty);
+    // //   tf::Point p;
+    // //   pointMsgToTF(relative_p, p);
+    // //   tf::Point tf_p = inverse * p;
+    // //   geometry_msgs::Point tf_point_msg;
+    // //   pointTFToMsg(tf_p, tf_point_msg);
+    // //   debug_reference_point_text.pose.position = tf_point_msg;
+    // //   debug_reference_point_text.text = std::to_string(debug_reference_point_id);
+    // //   debug_reference_point_id ++;
       
-    //   debug_global_point_id ++;
+    // //   unique_id++;
       
-    //   unique_id++;
+    // //   points_marker_array.markers.push_back(debug_reference_point_text); 
+    // // }
+    
+    // // //center point text
+    // // size_t debug_global_point_id = 0;
+    // // for (const auto& point: local_center_points)
+    // // {
+    // //   visualization_msgs::Marker debug_center_point_text;
+    // //   debug_center_point_text.lifetime = ros::Duration(0.2);
+    // //   debug_center_point_text.header = in_pose_ptr_->header;
+    // //   debug_center_point_text.ns = std::string("debug_center_point_text");
+    // //   debug_center_point_text.action = visualization_msgs::Marker::ADD;
+    // //   debug_center_point_text.id = unique_id;
+    // //   debug_center_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    // //   debug_center_point_text.scale.x = 1;
+    // //   debug_center_point_text.scale.y = 0.1;
+    // //   debug_center_point_text.scale.z = 0.4;
+
+    // //   // texts are green
+    // //   debug_center_point_text.color.g = 1.0f;
+    // //   debug_center_point_text.color.a = 1.0;
       
-    //   points_marker_array.markers.push_back(debug_center_point_text); 
-    // }
+      
+    // //   geometry_msgs::Point relative_p;
+    // //   relative_p.y = 0.8;
+    // //   geometry_msgs::Pose pose;
+    // //   pose.position.x = point.tx ;
+    // //   pose.position.y = point.ty ;
+    // //   pose.position.z = in_waypoints_ptr_->waypoints.front().pose.pose.position.z;
+    // //   pose.orientation.x = 0;
+    // //   pose.orientation.y = 0;
+    // //   pose.orientation.z = 0;
+    // //   pose.orientation.w = 1.0;
+    // //   tf::Transform inverse;
+    // //   tf::poseMsgToTF(pose, inverse);
+
+    // //   tf::Point p;
+    // //   pointMsgToTF(relative_p, p);
+    // //   tf::Point tf_p = inverse * p;
+    // //   geometry_msgs::Point tf_point_msg;
+    // //   pointTFToMsg(tf_p, tf_point_msg);
+    // //   debug_center_point_text.pose.position = tf_point_msg;
+    // //   debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
+    // //   // debug_center_point_text.text += std::string(" ");
+    // //   // debug_center_point_text.text += std::to_string(point.tx);
+    // //   // debug_center_point_text.text += std::string(" ");
+    // //   // debug_center_point_text.text += std::to_string(point.ty);
+      
+    // //   debug_global_point_id ++;
+      
+    // //   unique_id++;
+      
+    // //   points_marker_array.markers.push_back(debug_center_point_text); 
+    // // }
 
     
     visualization_msgs::Marker trajectory_marker;
@@ -695,57 +676,57 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     points_marker_array.markers.push_back(trajectory_marker);
     unique_id++;
     
-    //text
-    size_t debug_wp_id = 0;
-    for (const auto& waypoint: out_trajectory.waypoints)
-    {
-      visualization_msgs::Marker trajectory_points_text;
-      trajectory_points_text.lifetime = ros::Duration(0.2);
-      trajectory_points_text.header = in_pose_ptr_->header;
-      trajectory_points_text.ns = std::string("trajectory_points_text");
-      trajectory_points_text.action = visualization_msgs::Marker::ADD;
-      trajectory_points_text.id = unique_id;
-      trajectory_points_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-      trajectory_points_text.scale.x = 1;
-      trajectory_points_text.scale.y = 0.1;
-      trajectory_points_text.scale.z = 0.4;
+    // //text
+    // size_t debug_wp_id = 0;
+    // for (const auto& waypoint: out_trajectory.waypoints)
+    // {
+    //   visualization_msgs::Marker trajectory_points_text;
+    //   trajectory_points_text.lifetime = ros::Duration(0.2);
+    //   trajectory_points_text.header = in_pose_ptr_->header;
+    //   trajectory_points_text.ns = std::string("trajectory_points_text");
+    //   trajectory_points_text.action = visualization_msgs::Marker::ADD;
+    //   trajectory_points_text.id = unique_id;
+    //   trajectory_points_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    //   trajectory_points_text.scale.x = 1;
+    //   trajectory_points_text.scale.y = 0.1;
+    //   trajectory_points_text.scale.z = 0.4;
 
-      // texts are green
-      trajectory_points_text.color.g = 1.0f;
-      trajectory_points_text.color.a = 1.0;
+    //   // texts are green
+    //   trajectory_points_text.color.g = 1.0f;
+    //   trajectory_points_text.color.a = 1.0;
       
-      double velocity_in_kmh = (waypoint.twist.twist.linear.x*60*60)/(1000);
+    //   double velocity_in_kmh = (waypoint.twist.twist.linear.x*60*60)/(1000);
       
-      geometry_msgs::Point relative_p;
-      relative_p.y = 0.8;
-      geometry_msgs::Pose pose = waypoint.pose.pose;
-      tf::Transform inverse;
-      tf::poseMsgToTF(pose, inverse);
+    //   geometry_msgs::Point relative_p;
+    //   relative_p.y = 0.8;
+    //   geometry_msgs::Pose pose = waypoint.pose.pose;
+    //   tf::Transform inverse;
+    //   tf::poseMsgToTF(pose, inverse);
 
-      tf::Point p;
-      pointMsgToTF(relative_p, p);
-      tf::Point tf_p = inverse * p;
-      geometry_msgs::Point tf_point_msg;
-      pointTFToMsg(tf_p, tf_point_msg);
-      trajectory_points_text.pose.position = tf_point_msg;
-      trajectory_points_text.text = std::to_string(debug_wp_id);
-      trajectory_points_text.text += std::string(": ");
+    //   tf::Point p;
+    //   pointMsgToTF(relative_p, p);
+    //   tf::Point tf_p = inverse * p;
+    //   geometry_msgs::Point tf_point_msg;
+    //   pointTFToMsg(tf_p, tf_point_msg);
+    //   trajectory_points_text.pose.position = tf_point_msg;
+    //   trajectory_points_text.text = std::to_string(debug_wp_id);
+    //   trajectory_points_text.text += std::string(": ");
       
-      trajectory_points_text.text += 
-        std::to_string(velocity_in_kmh).substr(0,4);
+    //   trajectory_points_text.text += 
+    //     std::to_string(velocity_in_kmh).substr(0,4);
         
-      // trajectory_points_text.text += std::string(" ");
-      // trajectory_points_text.text += std::to_string(pose.position.x);
-      // trajectory_points_text.text += std::string(" ");
-      // trajectory_points_text.text += std::to_string(pose.position.y);
+    //   // trajectory_points_text.text += std::string(" ");
+    //   // trajectory_points_text.text += std::to_string(pose.position.x);
+    //   // trajectory_points_text.text += std::string(" ");
+    //   // trajectory_points_text.text += std::to_string(pose.position.y);
       
-      // trajectory_points_text.pose.orientation = waypoint.pose.pose.orientation;
-      unique_id++;
+    //   // trajectory_points_text.pose.orientation = waypoint.pose.pose.orientation;
+    //   unique_id++;
       
-      points_marker_array.markers.push_back(trajectory_points_text);
+    //   points_marker_array.markers.push_back(trajectory_points_text);
       
-      debug_wp_id++;
-    }
+    //   debug_wp_id++;
+    // }
     
     int trajectory_count = 0;
     for(const auto& trajectory: out_debug_trajectories)
