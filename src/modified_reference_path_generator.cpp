@@ -794,6 +794,45 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = sum_x;
     pose_in_lidar_tf.position.y = sum_y;
+    std::cerr << "get size " << clearance_map.getSize() << std::endl;
+    grid_map::Position a;
+    a(0) = sum_x;
+    a(1) = sum_y; 
+    grid_map::Index index;
+    clearance_map.getIndex(a, index);
+    std::cerr << "ddd " << index(1) << std::endl;
+    for(int i = index(1); i >= 0; i--)
+    {
+      grid_map::Position position;
+      grid_map::Index target_index;
+      target_index = index;
+      target_index(1) = i;
+      clearance_map.getPosition(target_index, position);
+      float value = clearance_map.atPosition(layer_name, position)*clearance_to_m;
+      // std::cerr << "i " << i << "value "<< value<< std::endl;
+      if(value < 0.001)
+      {
+        std::cerr << "left bound " << position(1) << std::endl;
+        break;
+      }
+    }
+    
+    for(int i = index(1); i <clearance_map.getSize()(1) ; i++)
+    {
+      grid_map::Position position;
+      grid_map::Index target_index;
+      target_index = index;
+      target_index(1) = i;
+      clearance_map.getPosition(target_index, position);
+      float value = clearance_map.atPosition(layer_name, position)*clearance_to_m;
+      // std::cerr << "i " << i << "value "<< value<< std::endl;
+      if(value < 0.001)
+      {
+        std::cerr << "righy bound " << position(1) << std::endl;
+        break;
+      }
+    }
+    // for(size_t i = 0; i < clearance_map.get)
     pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
     pose_in_lidar_tf.orientation.w = 1.0;
     geometry_msgs::Pose pose_in_map_tf;

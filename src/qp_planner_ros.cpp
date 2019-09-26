@@ -652,29 +652,29 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     // // }
 
     
-    visualization_msgs::Marker trajectory_marker;
-    trajectory_marker.lifetime = ros::Duration(0.2);
-    trajectory_marker.header = in_pose_ptr_->header;
-    trajectory_marker.ns = std::string("trajectory_marker");
-    trajectory_marker.action = visualization_msgs::Marker::MODIFY;
-    trajectory_marker.pose.orientation.w = 1.0;
-    trajectory_marker.id = unique_id;
-    trajectory_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    trajectory_marker.scale.x = 0.6;
+    // visualization_msgs::Marker trajectory_marker;
+    // trajectory_marker.lifetime = ros::Duration(0.2);
+    // trajectory_marker.header = in_pose_ptr_->header;
+    // trajectory_marker.ns = std::string("trajectory_marker");
+    // trajectory_marker.action = visualization_msgs::Marker::MODIFY;
+    // trajectory_marker.pose.orientation.w = 1.0;
+    // trajectory_marker.id = unique_id;
+    // trajectory_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    // trajectory_marker.scale.x = 0.6;
 
-    // Points are red
-    trajectory_marker.color.r = 1.0f;
-    trajectory_marker.color.a = 1;
-    for (const auto& waypoint: out_trajectory.waypoints)
-    {
-      geometry_msgs::Point geometry_point;
-      geometry_point.x = waypoint.pose.pose.position.x;
-      geometry_point.y = waypoint.pose.pose.position.y;
-      geometry_point.z = waypoint.pose.pose.position.z;
-      trajectory_marker.points.push_back(geometry_point);
-    }
-    points_marker_array.markers.push_back(trajectory_marker);
-    unique_id++;
+    // // Points are red
+    // trajectory_marker.color.r = 1.0f;
+    // trajectory_marker.color.a = 1;
+    // for (const auto& waypoint: out_trajectory.waypoints)
+    // {
+    //   geometry_msgs::Point geometry_point;
+    //   geometry_point.x = waypoint.pose.pose.position.x;
+    //   geometry_point.y = waypoint.pose.pose.position.y;
+    //   geometry_point.z = waypoint.pose.pose.position.z;
+    //   trajectory_marker.points.push_back(geometry_point);
+    // }
+    // points_marker_array.markers.push_back(trajectory_marker);
+    // unique_id++;
     
     // //text
     // size_t debug_wp_id = 0;
@@ -728,34 +728,34 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     //   debug_wp_id++;
     // }
     
-    int trajectory_count = 0;
-    for(const auto& trajectory: out_debug_trajectories)
-    {
-      trajectory_count += 1;
-      visualization_msgs::Marker trajectory_marker;
-      trajectory_marker.lifetime = ros::Duration(0.2);
-      trajectory_marker.header = in_pose_ptr_->header;
-      trajectory_marker.ns = std::string("debug_trajectory_marker") ;
-      trajectory_marker.action = visualization_msgs::Marker::MODIFY;
-      trajectory_marker.pose.orientation.w = 1.0;
-      trajectory_marker.id = unique_id;
-      trajectory_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-      trajectory_marker.scale.x = 0.5;
+    // int trajectory_count = 0;
+    // for(const auto& trajectory: out_debug_trajectories)
+    // {
+    //   trajectory_count += 1;
+    //   visualization_msgs::Marker trajectory_marker;
+    //   trajectory_marker.lifetime = ros::Duration(0.2);
+    //   trajectory_marker.header = in_pose_ptr_->header;
+    //   trajectory_marker.ns = std::string("debug_trajectory_marker") ;
+    //   trajectory_marker.action = visualization_msgs::Marker::MODIFY;
+    //   trajectory_marker.pose.orientation.w = 1.0;
+    //   trajectory_marker.id = unique_id;
+    //   trajectory_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    //   trajectory_marker.scale.x = 0.5;
 
-      // Points are red
-      trajectory_marker.color.r = 1.0f;
-      trajectory_marker.color.a = 0.3;
-      for (const auto& waypoint: trajectory.waypoints)
-      {
-        geometry_msgs::Point geometry_point;
-        geometry_point.x = waypoint.pose.pose.position.x;
-        geometry_point.y = waypoint.pose.pose.position.y;
-        geometry_point.z = waypoint.pose.pose.position.z;
-        trajectory_marker.points.push_back(geometry_point);
-      }
-      points_marker_array.markers.push_back(trajectory_marker);
-      unique_id++; 
-    }
+    //   // Points are red
+    //   trajectory_marker.color.r = 1.0f;
+    //   trajectory_marker.color.a = 0.3;
+    //   for (const auto& waypoint: trajectory.waypoints)
+    //   {
+    //     geometry_msgs::Point geometry_point;
+    //     geometry_point.x = waypoint.pose.pose.position.x;
+    //     geometry_point.y = waypoint.pose.pose.position.y;
+    //     geometry_point.z = waypoint.pose.pose.position.z;
+    //     trajectory_marker.points.push_back(geometry_point);
+    //   }
+    //   points_marker_array.markers.push_back(trajectory_marker);
+    //   unique_id++; 
+    // }
     
     markers_pub_.publish(points_marker_array);
   }
