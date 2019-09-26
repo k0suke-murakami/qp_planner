@@ -502,14 +502,14 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Node* a = new Node();
   Node initial_node;
   double clearance_to_m = 0.1;
-  const double min_r = 1.6;
+  // const double min_r = 1.6;
   // const double min_r = 2.0;
   const double max_r = 10;
   initial_node.p = start_p;
   double initial_r = clearance_map.atPosition(layer_name, initial_node.p) * clearance_to_m ;
-  if(initial_r < min_r)
+  if(initial_r < min_radius_)
   {
-    initial_r = min_r;
+    initial_r = min_radius_;
   }
   else if(initial_r > max_r)
   {
@@ -525,9 +525,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Node goal_node;
   goal_node.p = goal_p;
   double goal_r = clearance_map.atPosition(layer_name, goal_node.p) * clearance_to_m ;
-  if(goal_r < min_r)
+  if(goal_r < min_radius_)
   {
-    goal_r = min_r;
+    goal_r = min_radius_;
   }
   else if(goal_r > max_r)
   {
@@ -560,7 +560,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
           expandNode(lowest_f_node, 
                      clearance_map,
                      goal_node,
-                     min_r,
+                     min_radius_,
                      max_r);
       s_open.insert(s_open.end(),
                     child_nodes.begin(),
@@ -586,9 +586,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
                                             start_p)*0.1;
     double r = std::min(tmp_r, max_r);
-    if(r < min_r)
+    if(r < min_radius_)
     {
-      r = min_r;
+      r = min_radius_;
       std::cerr << "start point's clearance is wrong "  << std::endl;
     }
     start_path_point.clearance = r;
@@ -655,9 +655,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
                                             goal_p)*0.1;
     double r = std::min(tmp_r, max_r);
-    if(r < min_r)
+    if(r < min_radius_)
     {
-      r = min_r;
+      r = min_radius_;
     }
     goal_path_point.clearance = r;
   }
@@ -701,7 +701,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
                                 refined_path[i].position,
                                 refined_path[i+1].position,
                                 clearance_map,
-                                min_r,
+                                min_radius_,
                                 max_k,
                                 resolution_of_gridmap);
       double clearance;
