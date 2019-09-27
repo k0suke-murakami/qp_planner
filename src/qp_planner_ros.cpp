@@ -261,6 +261,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     // std::vector<autoware_msgs::Waypoint> modified_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_bspline_path;
+    // std::vector<autoware_msgs::Waypoint> debug_qp_path;
     sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
     // got_modified_reference_path_ = false;
     if(!got_modified_reference_path_)
@@ -320,6 +321,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
             modified_reference_path_,
             debug_modified_smoothed_reference_path,
             debug_bspline_path,
+            debug_qp_path_,
             debug_clearance_map_pointcloud);
       if(!got_modified_reference_path_)
       { 
@@ -454,6 +456,26 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       debug_modified_reference_points.points.push_back(waypoint.pose.pose.position);
     }
     points_marker_array.markers.push_back(debug_modified_reference_points);
+    unique_id++;
+    
+    // visualize debug modified reference point
+    visualization_msgs::Marker debug_qp_marker;
+    debug_qp_marker.lifetime = ros::Duration(0.2);
+    debug_qp_marker.header = in_pose_ptr_->header;
+    debug_qp_marker.ns = std::string("debug_qp_marker");
+    debug_qp_marker.action = visualization_msgs::Marker::MODIFY;
+    debug_qp_marker.pose.orientation.w = 1.0;
+    debug_qp_marker.id = unique_id;
+    debug_qp_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_qp_marker.scale.x = 0.9;
+    debug_qp_marker.color.r = 1.0f;
+    debug_qp_marker.color.g = 1.0f;
+    debug_qp_marker.color.a = 1;
+    for(const auto& waypoint: debug_qp_path_)
+    {
+      debug_qp_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_qp_marker);
     unique_id++;
     
     //  // visualize debug modified smoothed reference point

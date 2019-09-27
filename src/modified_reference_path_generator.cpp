@@ -440,8 +440,43 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_bspline_path,
+    std::vector<autoware_msgs::Waypoint>& debug_qp_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
+  USING_NAMESPACE_QPOASES
+
+  /* Setup data of QP. */
+  real_t H[2*2] = { 4.0, 1.0, 1.0, 2.0 };
+  real_t A[2*2] = { 1.0, 0.0, 0.0,1.0 };
+  real_t g[2] = { 1.0, 1.0 };
+  real_t lb[2] = { 0.0, 0.0 };
+  real_t ub[2] = { 10000.0, 10000.0 };
+  real_t lbA[2] = { 20.0 , 0}; // lbAとubAを等しくすることで等式制約として設定可能
+  real_t ubA[2] = { 20.0 , 0};
+
+  /* Setting up QProblem object. */
+  QProblem example( 2,1 );
+
+  Options options;
+  example.setOptions( options );
+
+  /* Solve first QP. */
+  int_t nWSR = 10;
+  example.init( H,g,A,lb,ub,lbA,ubA, nWSR );
+
+  /* Get and print solution of first QP. */
+  real_t xOpt[2];
+  real_t yOpt[2+1];
+  example.getPrimalSolution( xOpt );
+  example.getDualSolution( yOpt );
+  printf( "\nxOpt = [ %e, %e ];  yOpt = [ %e, %e, %e ];  objVal = %e\n\n",
+          xOpt[0],xOpt[1],yOpt[0],yOpt[1],yOpt[2],example.getObjVal() );
+
+  example.printOptions();
+  example.printProperties();
+  // return false;
+  std::cerr << "active cont " << example.getNAC() << std::endl;
+  
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix data = clearance_map.get(layer_name);
 
@@ -775,6 +810,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
      generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
   int number_of_sampling_points = 60;
   double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
+  std::vector<double> lower_bound_vec;
+  std::vector<double> upper_bound_vec;
+  std::vector<double> lateral_reference_point_vec;
+  std::vector<double> longitudinal_reference_point_vec;
+  
   for(double i = 0; i < 1; i += delta_function_value)
   {
     double sum_x = 0;
@@ -793,16 +833,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     
     // std::cerr << "sumx " << sum_x << std::endl;
     // std::cerr << "sumy " << sum_y << std::endl;
-    geometry_msgs::Pose pose_in_lidar_tf;
-    pose_in_lidar_tf.position.x = sum_x;
-    pose_in_lidar_tf.position.y = sum_y;
-    std::cerr << "get size " << clearance_map.getSize() << std::endl;
     grid_map::Position a;
     a(0) = sum_x;
     a(1) = sum_y; 
     grid_map::Index index;
     clearance_map.getIndex(a, index);
-    std::cerr << "ddd " << index(1) << std::endl;
     for(int i = index(1); i >= 0; i--)
     {
       grid_map::Position position;
@@ -815,6 +850,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       if(value < 0.001)
       {
         std::cerr << "left bound " << position(1) << std::endl;
+        upper_bound_vec.push_back(position(1));
         break;
       }
     }
@@ -831,10 +867,18 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       if(value < 0.001)
       {
         std::cerr << "righy bound " << position(1) << std::endl;
+        lower_bound_vec.push_back(position(1));
         break;
       }
     }
-    // for(size_t i = 0; i < clearance_map.get)
+    
+    lateral_reference_point_vec.push_back(sum_y);
+    std::cerr << "sum y " << sum_y << std::endl;
+    longitudinal_reference_point_vec.push_back(sum_x);
+    
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = sum_x;
+    pose_in_lidar_tf.position.y = sum_y;
     pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
     pose_in_lidar_tf.orientation.w = 1.0;
     geometry_msgs::Pose pose_in_map_tf;
@@ -844,5 +888,170 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_bspline_path.push_back(waypoint);
     modified_reference_path.push_back(waypoint); 
   }
+  
+  std::cerr << "num low vec " << lower_bound_vec.size() << std::endl;
+  std::cerr << "num up vec " << upper_bound_vec.size() << std::endl;
+  
+  qpOASES::SQProblem solver(number_of_sampling_points, 1);
+  solver.setPrintLevel(qpOASES::PL_NONE);
+  double h_matrix[number_of_sampling_points*number_of_sampling_points];
+  double g_matrix[number_of_sampling_points];
+  double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
+  double lower_bound[number_of_sampling_points];
+  double upper_bound[number_of_sampling_points];
+  double constrain[number_of_sampling_points];
+  Eigen::MatrixXd a_constraint = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
+  
+  
+  Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
+  Eigen::MatrixXd tmp_a2(number_of_sampling_points, number_of_sampling_points);
+  Eigen::MatrixXd tmp_a3(number_of_sampling_points, number_of_sampling_points);
+  Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
+  Eigen::VectorXd tmp_b1(number_of_sampling_points);
+  Eigen::VectorXd tmp_b2(number_of_sampling_points);
+  Eigen::VectorXd tmp_b3(number_of_sampling_points);
+  for (int r = 0; r < number_of_sampling_points; ++r)
+  {
+    tmp_b1(r) = lateral_reference_point_vec[r];
+    tmp_b2(r) = 0;
+    tmp_b3(r) = 0;
+    for (int c = 0; c < number_of_sampling_points; ++c)
+    {
+      if(c==r && c != number_of_sampling_points-1)
+      {
+        tmp_a2(r, c) = 1;
+      }
+      else if(c - r == 1)
+      {
+        tmp_a2(r, c) = -1;
+      }
+      else
+      {
+        tmp_a2(r, c) = 0;
+      }
+      
+      if(c==r && (c != number_of_sampling_points-1 || c != number_of_sampling_points - 2))
+      {
+        tmp_a3(r, c) = 1;
+      }
+      else if(c - r == 1)
+      {
+        tmp_a3(r, c) = -2;
+      }
+      else if(c - r == 2)
+      {
+        tmp_a3(r, c) = 1;
+      }
+      else
+      {
+        tmp_a3(r, c) = 0;
+      }
+      
+      if(c - r == -1 )
+      {
+        tmp_a_constrain(r,c) = -1;
+      }
+      else if(c - r == 1)
+      {
+        tmp_a_constrain(r, c) = 1;
+      }
+      else
+      {
+        tmp_a_constrain(r, c) = 0;
+      }
+      
+      // if(r==c)
+      // {
+      //   tmp_a_constrain(r,c) = 1;
+      // }
+      // else
+      // {
+      //   tmp_a_constrain(r, c) = 0;
+      // }
+      
+    }
+  }
+  std::cerr  << tmp_a_constrain << std::endl;
+  // Eigen::MatrixXd tmp_a = tmp_a1.transpose()*tmp_a1 + tmp_a2.transpose()*tmp_a2;
+  // Eigen::MatrixXd tmp_b = -1*(tmp_b1.transpose()*tmp_a1 + tmp_b2.transpose()*tmp_a2);
+  
+  Eigen::MatrixXd tmp_a = tmp_a1.transpose()*tmp_a1 + 
+                          tmp_a2.transpose()*tmp_a2 +
+                          tmp_a3.transpose()*tmp_a3;
+  Eigen::MatrixXd tmp_b = -1*(tmp_b1.transpose()*tmp_a1 +
+                              tmp_b2.transpose()*tmp_a2 +
+                              tmp_b3.transpose()*tmp_a3);
+  
+  // Eigen::MatrixXd tmp_a_constrain = 
+  //                         tmp_a2.transpose()*tmp_a2;
+  
+  
+  
+  int index = 0;
+
+  for (int r = 0; r < number_of_sampling_points; ++r)
+  {
+    for (int c = 0; c < number_of_sampling_points; ++c)
+    {
+      h_matrix[index] = tmp_a(r, c);
+      // h_matrix[index] = tmp_a_constrain(r, c);
+      // a_constraint_matrix[index] = a_constraint(r, c);
+      a_constraint_matrix[index] = tmp_a_constrain(r, c);
+      index++;
+    }
+  }
+  
+  for (int i = 0; i < number_of_sampling_points; ++i)
+  {
+    lower_bound[i] = lower_bound_vec[i];
+    upper_bound[i] = upper_bound_vec[i];
+    // g_matrix[i] = -1*lateral_reference_point_vec[i];
+    g_matrix[i] = tmp_b(i);
+    // constrain[i] = lateral_reference_point_vec[i];
+    constrain[i] = 0;
+    std::cerr << "constrain " << constrain[i] << std::endl;
+  }
+  
+  lower_bound[40] = 0;
+  upper_bound[40] = 3;
+  lower_bound[41] = 0;
+  upper_bound[41] = 3;
+  lower_bound[42] = 0;
+  upper_bound[42] = 3;
+  
+  // solver = qpOASES::SQProblem(kNumOfOffsetRows, kNumOfOffsetRows);
+  int max_iter = 500;
+  auto ret = solver.init(h_matrix, g_matrix, a_constraint_matrix, 
+                         lower_bound, upper_bound, 
+                         constrain, constrain,
+                         max_iter); 
+  double result[number_of_sampling_points];
+  solver.getPrimalSolution(result);
+  for(size_t i = 1; i < number_of_sampling_points; i++)
+  {
+    if(i < number_of_sampling_points - 2)
+    {
+      std::cerr << "pre diff " << result[i] - result[i-1]<< std::endl;
+      std::cerr << "post diff " << result[i] - result[i+1] << std::endl;
+    }
+    std::cerr << "result " << result[i] << std::endl;
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
+    pose_in_lidar_tf.position.y = result[i];
+    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    debug_qp_path.push_back(waypoint); 
+  }
+  
+  std::cerr << "num cont " << solver.getNAC() << std::endl;
+  printf( "\nobjVal = %e\n\n",
+          solver.getObjVal() );
+
+  solver.printOptions();
+  solver.printProperties();
   return true;
 }
