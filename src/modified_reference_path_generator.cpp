@@ -9,9 +9,11 @@
 #include <grid_map_msgs/GridMap.h>
 
 #include <distance_transform/distance_transform.hpp>
+// #include <dt.h>
 
 #include <qpOASES.hpp>
 
+#include <chrono>
 #include "modified_reference_path_generator.h"
 
 
@@ -441,41 +443,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_bspline_path,
     std::vector<autoware_msgs::Waypoint>& debug_qp_path,
+    std::vector<autoware_msgs::Waypoint>& debug_collision_point,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
-  USING_NAMESPACE_QPOASES
-
-  /* Setup data of QP. */
-  real_t H[2*2] = { 4.0, 1.0, 1.0, 2.0 };
-  real_t A[2*2] = { 1.0, 0.0, 0.0,1.0 };
-  real_t g[2] = { 1.0, 1.0 };
-  real_t lb[2] = { 0.0, 0.0 };
-  real_t ub[2] = { 10000.0, 10000.0 };
-  real_t lbA[2] = { 20.0 , 0}; // lbAとubAを等しくすることで等式制約として設定可能
-  real_t ubA[2] = { 20.0 , 0};
-
-  /* Setting up QProblem object. */
-  QProblem example( 2,1 );
-
-  Options options;
-  example.setOptions( options );
-
-  /* Solve first QP. */
-  int_t nWSR = 10;
-  example.init( H,g,A,lb,ub,lbA,ubA, nWSR );
-
-  /* Get and print solution of first QP. */
-  real_t xOpt[2];
-  real_t yOpt[2+1];
-  example.getPrimalSolution( xOpt );
-  example.getDualSolution( yOpt );
-  printf( "\nxOpt = [ %e, %e ];  yOpt = [ %e, %e, %e ];  objVal = %e\n\n",
-          xOpt[0],xOpt[1],yOpt[0],yOpt[1],yOpt[2],example.getObjVal() );
-
-  example.printOptions();
-  example.printProperties();
-  // return false;
-  std::cerr << "active cont " << example.getNAC() << std::endl;
   
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix data = clearance_map.get(layer_name);
@@ -500,11 +470,21 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       }
     }
   }
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
   // Note: this is necessary at least at the first distance transform execution
   // and every time a reset is desired; it is not, instead, when updating
   dt::DistanceTransform::initializeIndices(indices);
+
+  
   dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
+  
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
+  std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
   for (dope::SizeType i = 0; i < size[0]; ++i)
   {
@@ -520,6 +500,68 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       }
     }
   }
+  
+  
+  // // grid_length y and grid_length_x respectively
+  // dope::Index2 size({ 200, 600 });
+  // dope::Grid<float, 2> f(size);
+  // dope::Grid<dope::SizeType, 2> indices(size);
+  // bool is_empty_cost = true;
+  // for (dope::SizeType i = 0; i < size[0]; ++i)
+  // {
+  //   for (dope::SizeType j = 0; j < size[1]; ++j)
+  //   {
+  //     if (data(i * size[1] + j) > 0.01)
+  //     {
+  //       f[i][j] = 0.0f;
+  //       is_empty_cost = false;
+  //     }
+  //     else
+  //     {
+  //       f[i][j] = std::numeric_limits<float>::max();
+  //     }
+  //   }
+  // }
+  
+  // char *input_name = argv[1];
+  // char *output_name = argv[2];
+
+  // // load input
+  // image<uchar> *input = loadPBM(input_name);
+
+  // // compute dt
+  // image<float> *out = dt(input);
+  
+  // // 1. 現在日時を取得
+  // std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
+
+  // // // Note: this is necessary at least at the first distance transform execution
+  // // // and every time a reset is desired; it is not, instead, when updating
+  // // dt::DistanceTransform::initializeIndices(indices);
+
+  
+  // // dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
+  
+  // // // 3. 現在日時を再度取得
+  // // std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
+  // // // 経過時間を取得
+  // // std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
+  // // std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+
+  // // for (dope::SizeType i = 0; i < size[0]; ++i)
+  // // {
+  // //   for (dope::SizeType j = 0; j < size[1]; ++j)
+  // //   {
+  // //     if (is_empty_cost)
+  // //     {
+  // //       data(i * size[1] + j) = 1;
+  // //     }
+  // //     else
+  // //     {
+  // //       data(i * size[1] + j) = f[i][j];
+  // //     }
+  // //   }
+  // // }
 
   clearance_map[layer_name] = data;
   grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
@@ -808,7 +850,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
   std::vector<double> knot_vector =  
      generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  int number_of_sampling_points = 60;
+  int number_of_sampling_points = 200;
   double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
   std::vector<double> lower_bound_vec;
   std::vector<double> upper_bound_vec;
@@ -849,7 +891,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       // std::cerr << "i " << i << "value "<< value<< std::endl;
       if(value < 0.001)
       {
-        std::cerr << "left bound " << position(1) << std::endl;
+        // std::cerr << "left bound " << position(1) << std::endl;
         upper_bound_vec.push_back(position(1));
         break;
       }
@@ -866,14 +908,14 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       // std::cerr << "i " << i << "value "<< value<< std::endl;
       if(value < 0.001)
       {
-        std::cerr << "righy bound " << position(1) << std::endl;
+        // std::cerr << "righy bound " << position(1) << std::endl;
         lower_bound_vec.push_back(position(1));
         break;
       }
     }
     
     lateral_reference_point_vec.push_back(sum_y);
-    std::cerr << "sum y " << sum_y << std::endl;
+    // std::cerr << "sum y " << sum_y << std::endl;
     longitudinal_reference_point_vec.push_back(sum_x);
     
     geometry_msgs::Pose pose_in_lidar_tf;
@@ -889,14 +931,16 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     modified_reference_path.push_back(waypoint); 
   }
   
-  std::cerr << "num low vec " << lower_bound_vec.size() << std::endl;
-  std::cerr << "num up vec " << upper_bound_vec.size() << std::endl;
+  // std::cerr << "num low vec " << lower_bound_vec.size() << std::endl;
+  // std::cerr << "num up vec " << upper_bound_vec.size() << std::endl;
   
-  qpOASES::SQProblem solver(number_of_sampling_points, 1);
+  // qpOASES::SQProblem solver(number_of_sampling_points, 1);
+  qpOASES::QProblemB solver(number_of_sampling_points);
+  
   solver.setPrintLevel(qpOASES::PL_NONE);
   double h_matrix[number_of_sampling_points*number_of_sampling_points];
   double g_matrix[number_of_sampling_points];
-  double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
+  // double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
   double lower_bound[number_of_sampling_points];
   double upper_bound[number_of_sampling_points];
   double constrain[number_of_sampling_points];
@@ -906,7 +950,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
   Eigen::MatrixXd tmp_a2(number_of_sampling_points, number_of_sampling_points);
   Eigen::MatrixXd tmp_a3(number_of_sampling_points, number_of_sampling_points);
-  Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
+  // Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
   Eigen::VectorXd tmp_b1(number_of_sampling_points);
   Eigen::VectorXd tmp_b2(number_of_sampling_points);
   Eigen::VectorXd tmp_b3(number_of_sampling_points);
@@ -930,7 +974,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
         tmp_a2(r, c) = 0;
       }
       
-      if(c==r && (c != number_of_sampling_points-1 || c != number_of_sampling_points - 2))
+      if(r == number_of_sampling_points-1 || r == number_of_sampling_points - 2)
+      {
+        tmp_a3(r, c) = 0;
+      }
+      else if(c==r)
       {
         tmp_a3(r, c) = 1;
       }
@@ -947,18 +995,18 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
         tmp_a3(r, c) = 0;
       }
       
-      if(c - r == -1 )
-      {
-        tmp_a_constrain(r,c) = -1;
-      }
-      else if(c - r == 1)
-      {
-        tmp_a_constrain(r, c) = 1;
-      }
-      else
-      {
-        tmp_a_constrain(r, c) = 0;
-      }
+      // if(c - r == -1 )
+      // {
+      //   tmp_a_constrain(r,c) = -1;
+      // }
+      // else if(c - r == 1)
+      // {
+      //   tmp_a_constrain(r, c) = 1;
+      // }
+      // else
+      // {
+      //   tmp_a_constrain(r, c) = 0;
+      // }
       
       // if(r==c)
       // {
@@ -971,16 +1019,21 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       
     }
   }
-  std::cerr  << tmp_a_constrain << std::endl;
+  // std::cerr << "tmp a 3 " << tmp_a3 << std::endl;
+  // std::cerr  << tmp_a_constrain << std::endl;
   // Eigen::MatrixXd tmp_a = tmp_a1.transpose()*tmp_a1 + tmp_a2.transpose()*tmp_a2;
   // Eigen::MatrixXd tmp_b = -1*(tmp_b1.transpose()*tmp_a1 + tmp_b2.transpose()*tmp_a2);
   
-  Eigen::MatrixXd tmp_a = tmp_a1.transpose()*tmp_a1 + 
-                          tmp_a2.transpose()*tmp_a2 +
-                          tmp_a3.transpose()*tmp_a3;
-  Eigen::MatrixXd tmp_b = -1*(tmp_b1.transpose()*tmp_a1 +
-                              tmp_b2.transpose()*tmp_a2 +
-                              tmp_b3.transpose()*tmp_a3);
+  double w1 = 0.00001;
+  double w3 = 1.0;
+  // double w1 = 1.0;
+  // double w3 = 1.0;
+  Eigen::MatrixXd tmp_a = w1*tmp_a1.transpose()*tmp_a1 + 
+                          // tmp_a2.transpose()*tmp_a2 +
+                          w3*tmp_a3.transpose()*tmp_a3;
+  Eigen::MatrixXd tmp_b = -1*(w1*tmp_b1.transpose()*tmp_a1 +
+                              // tmp_b2.transpose()*tmp_a2 +
+                              w3*tmp_b3.transpose()*tmp_a3);
   
   // Eigen::MatrixXd tmp_a_constrain = 
   //                         tmp_a2.transpose()*tmp_a2;
@@ -996,7 +1049,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       h_matrix[index] = tmp_a(r, c);
       // h_matrix[index] = tmp_a_constrain(r, c);
       // a_constraint_matrix[index] = a_constraint(r, c);
-      a_constraint_matrix[index] = tmp_a_constrain(r, c);
+      // a_constraint_matrix[index] = tmp_a_constrain(r, c);
       index++;
     }
   }
@@ -1008,33 +1061,51 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     // g_matrix[i] = -1*lateral_reference_point_vec[i];
     g_matrix[i] = tmp_b(i);
     // constrain[i] = lateral_reference_point_vec[i];
-    constrain[i] = 0;
-    std::cerr << "constrain " << constrain[i] << std::endl;
+    // constrain[i] = 0;
+    // std::cerr << "constrain " << constrain[i] << std::endl;
   }
   
-  lower_bound[40] = 0;
+  lower_bound[38] = 1;
+  lower_bound[39] = 1;
+  lower_bound[40] = 1;
+  lower_bound[41] = 1;
+  lower_bound[42] = 1;
+  lower_bound[43] = 1;
+  upper_bound[38] = 3;
+  upper_bound[39] = 3;
   upper_bound[40] = 3;
-  lower_bound[41] = 0;
   upper_bound[41] = 3;
-  lower_bound[42] = 0;
   upper_bound[42] = 3;
+  upper_bound[43] = 3;
   
   // solver = qpOASES::SQProblem(kNumOfOffsetRows, kNumOfOffsetRows);
   int max_iter = 500;
-  auto ret = solver.init(h_matrix, g_matrix, a_constraint_matrix, 
+  // auto ret = solver.init(h_matrix, g_matrix, a_constraint_matrix, 
+  //                        lower_bound, upper_bound, 
+  //                        constrain, constrain,
+  //                        max_iter); 
+  // 1. 現在日時を取得
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    
+  auto ret = solver.init(h_matrix, g_matrix, 
                          lower_bound, upper_bound, 
-                         constrain, constrain,
                          max_iter); 
   double result[number_of_sampling_points];
   solver.getPrimalSolution(result);
+  
+  // 3. 現在日時を再度取得
+    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+    // 経過時間を取得
+    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+    std::cout <<"qp path generation " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   for(size_t i = 1; i < number_of_sampling_points; i++)
   {
-    if(i < number_of_sampling_points - 2)
-    {
-      std::cerr << "pre diff " << result[i] - result[i-1]<< std::endl;
-      std::cerr << "post diff " << result[i] - result[i+1] << std::endl;
-    }
-    std::cerr << "result " << result[i] << std::endl;
+    // if(i < number_of_sampling_points - 2)
+    // {
+    //   std::cerr << "pre diff " << result[i] - result[i-1]<< std::endl;
+    //   std::cerr << "post diff " << result[i] - result[i+1] << std::endl;
+    // }
+    // std::cerr << "result " << result[i] << std::endl;
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
     pose_in_lidar_tf.position.y = result[i];
@@ -1047,11 +1118,28 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_qp_path.push_back(waypoint); 
   }
   
-  std::cerr << "num cont " << solver.getNAC() << std::endl;
-  printf( "\nobjVal = %e\n\n",
-          solver.getObjVal() );
+  for(size_t i = 38; i < 39+6; i++)
+  {
+    for(size_t j = 0; j < 10; j++)
+    {
+      geometry_msgs::Pose pose_in_lidar_tf;
+      pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
+      pose_in_lidar_tf.position.y = 1 - 1. - j*0.5;
+      pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+      pose_in_lidar_tf.orientation.w = 1.0;
+      geometry_msgs::Pose pose_in_map_tf;
+      tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+      autoware_msgs::Waypoint waypoint;
+      waypoint.pose.pose = pose_in_map_tf;
+      debug_collision_point.push_back(waypoint); 
+    }
+  }
+  
+  // std::cerr << "num cont " << solver.getNAC() << std::endl;
+  // printf( "\nobjVal = %e\n\n",
+  //         solver.getObjVal() );
 
-  solver.printOptions();
-  solver.printProperties();
+  // solver.printOptions();
+  // solver.printProperties();
   return true;
 }

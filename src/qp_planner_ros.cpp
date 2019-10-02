@@ -87,7 +87,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
   private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
-  private_nh_.param<double>("min_radius", min_radius, 1.6);
+  private_nh_.param<double>("min_radius", min_radius, 1.2);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
@@ -261,6 +261,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     // std::vector<autoware_msgs::Waypoint> modified_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_bspline_path;
+    // std::vector<autoware_msgs::Waypoint> debug_collision_point;
     // std::vector<autoware_msgs::Waypoint> debug_qp_path;
     sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
     // got_modified_reference_path_ = false;
@@ -322,6 +323,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
             debug_modified_smoothed_reference_path,
             debug_bspline_path,
             debug_qp_path_,
+            debug_collision_point_,
             debug_clearance_map_pointcloud);
       if(!got_modified_reference_path_)
       { 
@@ -476,6 +478,26 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       debug_qp_marker.points.push_back(waypoint.pose.pose.position);
     }
     points_marker_array.markers.push_back(debug_qp_marker);
+    unique_id++;
+    
+    // visualize debug modified reference point
+    visualization_msgs::Marker debug_collision_point_marker;
+    debug_collision_point_marker.lifetime = ros::Duration(0.2);
+    debug_collision_point_marker.header = in_pose_ptr_->header;
+    debug_collision_point_marker.ns = std::string("debug_collision_point_marker");
+    debug_collision_point_marker.action = visualization_msgs::Marker::MODIFY;
+    debug_collision_point_marker.pose.orientation.w = 1.0;
+    debug_collision_point_marker.id = unique_id;
+    debug_collision_point_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_collision_point_marker.scale.x = 0.5;
+    debug_collision_point_marker.color.r = 1.0f;
+    debug_collision_point_marker.color.a = 1;
+    std::cerr << "collision point " << debug_collision_point_.size() << std::endl;
+    for(const auto& waypoint: debug_collision_point_)
+    {
+      debug_collision_point_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_collision_point_marker);
     unique_id++;
     
     //  // visualize debug modified smoothed reference point

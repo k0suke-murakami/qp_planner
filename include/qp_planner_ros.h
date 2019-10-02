@@ -84,6 +84,7 @@ private:
   //TODO: not good code
   std::vector<autoware_msgs::Waypoint> modified_reference_path_;
   std::vector<autoware_msgs::Waypoint> debug_qp_path_;
+  std::vector<autoware_msgs::Waypoint> debug_collision_point_;
   std::vector<Point> center_line_points_;
   // std::vector<autoware_msgs::Waypoint> debug_bspline_path_;
   
