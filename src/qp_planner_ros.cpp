@@ -87,7 +87,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
   private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
-  private_nh_.param<double>("min_radius", min_radius, 1.2);
+  private_nh_.param<double>("min_radius", min_radius, 1.6);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;

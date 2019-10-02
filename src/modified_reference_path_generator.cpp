@@ -447,6 +447,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
   
+  std::cerr << "aaa " << min_radius_ << std::endl;
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix data = clearance_map.get(layer_name);
 
@@ -502,67 +503,6 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   }
   
   
-  // // grid_length y and grid_length_x respectively
-  // dope::Index2 size({ 200, 600 });
-  // dope::Grid<float, 2> f(size);
-  // dope::Grid<dope::SizeType, 2> indices(size);
-  // bool is_empty_cost = true;
-  // for (dope::SizeType i = 0; i < size[0]; ++i)
-  // {
-  //   for (dope::SizeType j = 0; j < size[1]; ++j)
-  //   {
-  //     if (data(i * size[1] + j) > 0.01)
-  //     {
-  //       f[i][j] = 0.0f;
-  //       is_empty_cost = false;
-  //     }
-  //     else
-  //     {
-  //       f[i][j] = std::numeric_limits<float>::max();
-  //     }
-  //   }
-  // }
-  
-  // char *input_name = argv[1];
-  // char *output_name = argv[2];
-
-  // // load input
-  // image<uchar> *input = loadPBM(input_name);
-
-  // // compute dt
-  // image<float> *out = dt(input);
-  
-  // // 1. 現在日時を取得
-  // std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
-
-  // // // Note: this is necessary at least at the first distance transform execution
-  // // // and every time a reset is desired; it is not, instead, when updating
-  // // dt::DistanceTransform::initializeIndices(indices);
-
-  
-  // // dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
-  
-  // // // 3. 現在日時を再度取得
-  // // std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
-  // // // 経過時間を取得
-  // // std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
-  // // std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-
-  // // for (dope::SizeType i = 0; i < size[0]; ++i)
-  // // {
-  // //   for (dope::SizeType j = 0; j < size[1]; ++j)
-  // //   {
-  // //     if (is_empty_cost)
-  // //     {
-  // //       data(i * size[1] + j) = 1;
-  // //     }
-  // //     else
-  // //     {
-  // //       data(i * size[1] + j) = f[i][j];
-  // //     }
-  // //   }
-  // // }
-
   clearance_map[layer_name] = data;
   grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
 
