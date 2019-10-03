@@ -12,6 +12,7 @@
 // #include <dt.h>
 
 #include <qpOASES.hpp>
+#include "osqp.h"
 
 #include <chrono>
 #include "modified_reference_path_generator.h"
@@ -449,7 +450,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   std::cerr << "aaa " << min_radius_ << std::endl;
   std::string layer_name = clearance_map.getLayers().back();
-  grid_map::Matrix data = clearance_map.get(layer_name);
+  grid_map::Matrix grid_data = clearance_map.get(layer_name);
 
   // grid_length y and grid_length_x respectively
   dope::Index2 size({ 200, 600 });
@@ -460,7 +461,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     for (dope::SizeType j = 0; j < size[1]; ++j)
     {
-      if (data(i * size[1] + j) > 0.01)
+      if (grid_data(i * size[1] + j) > 0.01)
       {
         f[i][j] = 0.0f;
         is_empty_cost = false;
@@ -493,17 +494,17 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     {
       if (is_empty_cost)
       {
-        data(i * size[1] + j) = 1;
+        grid_data(i * size[1] + j) = 1;
       }
       else
       {
-        data(i * size[1] + j) = f[i][j];
+        grid_data(i * size[1] + j) = f[i][j];
       }
     }
   }
   
   
-  clearance_map[layer_name] = data;
+  clearance_map[layer_name] = grid_data;
   grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
 
   geometry_msgs::Point start_point_in_lidar_tf, goal_point_in_lidar_tf;

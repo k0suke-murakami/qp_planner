@@ -48,6 +48,8 @@ if(ATTACH_SOURCES)
 target_sources(distance_transform INTERFACE ${all_hdr})
 endif()
 
+find_package(autoware_build_flags REQUIRED)
+
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -78,34 +80,82 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${qpoases_vendor_INCLUDE_DIRS}/qpoases_vendor
+  # ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/include
+  # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/include
+  # ${CMAKE_SOURCE_DIR}/lib/osqp-0.5.0-linux64/include
+  ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/include
+  
+  # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/iib
 )
 
+
 add_executable(qp_planner
-  src/qp_planner_node.cpp
-  src/qp_planner_ros.cpp
-  src/qp_planner.cpp
-  src/vectormap_ros.cpp
-  src/calculate_center_line.cpp
-  src/modified_reference_path_generator.cpp
+src/qp_planner_node.cpp
+src/qp_planner_ros.cpp
+src/qp_planner.cpp
+src/vectormap_ros.cpp
+src/calculate_center_line.cpp
+src/modified_reference_path_generator.cpp
 )
 
 target_link_libraries(qp_planner
+# ${catkin_LIBRARIES}
+# ${CMAKE_DL_LIBS}
+distance_transform
+#   ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/lib/libosqp.a
   ${catkin_LIBRARIES}
-  distance_transform
+  ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/lib/libosqp.a
+  ${CMAKE_DL_LIBS}
+  # ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/lib/libosqp.so
+  # lib/osqp-0.6.0-linux64/lib/libosqp.so
+  # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/lib/libosqp.so
+  # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/lib/libosqp.a
 )
 
-add_dependencies(qp_planner
+# include_directories(
+#         ${CMAKE_SOURCE_DIR}/include/smooth_path_generator
+#         ${CMAKE_SOURCE_DIR}/lib/osqp-0.5.0-linux64/include
+#         #PRIVATE ${PYTHON_INCLUDE_DIRS}
+#         ${autoware_config_msgs_INCLUDE_DIRS}
+#         ${autoware_msgs_INCLUDE_DIRS}
+#         ${catkin_INCLUDE_DIRS}
+# )
+# )
+
+# target_link_libraries(smooth_path_generator
+#         ${catkin_LIBRARIES}
+#         ${CMAKE_SOURCE_DIR}/lib/osqp-0.5.0-linux64/lib/libosqp.a
+#         ${CMAKE_DL_LIBS}
+#         #${PYTHON_LIBRARIES}
+# )
+  
+  add_dependencies(qp_planner
   ${catkin_EXPORTED_TARGETS}
   distance_transform
-)
-
-install(TARGETS
-        qp_planner
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-        
-install(DIRECTORY launch/
+  # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/lib/libosqp.so
+  # ${CMAKE_SOURCE_DIR}/lib/osqp-0.5.0-linux64/lib/libosqp.a
+  # ${CMAKE_SOURCE_DIR}/lib/osqp-0.5.0-linux64/lib/libosqp.so
+  )
+  
+TARGET_INCLUDE_DIRECTORIES(qp_planner PUBLIC
+            /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/include
+            # /home/kosuke/autoware.ai/src/autoware/qp_planner/lib/osqp-0.6.0-linux64/lib
+            include
+            )
+            
+  install(TARGETS
+  qp_planner
+  distance_transform
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+  
+install(DIRECTORY launch/ lib/osqp-0.6.0-linux64/include
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
         PATTERN ".svn" EXCLUDE)
+
+install(FILES ${CMAKE_SOURCE_DIR}/lib/osqp-0.6.0-linux64/lib/libosqp.a
+DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+)
+      
