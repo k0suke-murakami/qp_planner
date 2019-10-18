@@ -934,36 +934,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       else
       {
         tmp_a3(r, c) = 0;
-      }
-      
-      // if(c - r == -1 )
-      // {
-      //   tmp_a_constrain(r,c) = -1;
-      // }
-      // else if(c - r == 1)
-      // {
-      //   tmp_a_constrain(r, c) = 1;
-      // }
-      // else
-      // {
-      //   tmp_a_constrain(r, c) = 0;
-      // }
-      
-      // if(r==c)
-      // {
-      //   tmp_a_constrain(r,c) = 1;
-      // }
-      // else
-      // {
-      //   tmp_a_constrain(r, c) = 0;
-      // }
-      
+      }    
     }
   }
-  // std::cerr << "tmp a 3 " << tmp_a3 << std::endl;
-  // std::cerr  << tmp_a_constrain << std::endl;
-  // Eigen::MatrixXd tmp_a = tmp_a1.transpose()*tmp_a1 + tmp_a2.transpose()*tmp_a2;
-  // Eigen::MatrixXd tmp_b = -1*(tmp_b1.transpose()*tmp_a1 + tmp_b2.transpose()*tmp_a2);
   
   double w1 = 0.00001;
   double w3 = 1.0;
@@ -1026,7 +999,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   //                        constrain, constrain,
   //                        max_iter); 
   // 1. 現在日時を取得
-    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+  std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     
   auto ret = solver.init(h_matrix, g_matrix, 
                          lower_bound, upper_bound, 
@@ -1035,10 +1008,10 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   solver.getPrimalSolution(result);
   
   // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
-    // 経過時間を取得
-    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-    std::cout <<"qp path generation " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+  std::cout <<"qp path generation " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   for(size_t i = 1; i < number_of_sampling_points; i++)
   {
     // if(i < number_of_sampling_points - 2)
