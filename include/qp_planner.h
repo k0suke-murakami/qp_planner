@@ -33,6 +33,11 @@ namespace autoware_msgs
   ROS_DECLARE_MESSAGE(Waypoint); 
 }
 
+namespace geometry_msgs
+{
+  ROS_DECLARE_MESSAGE(TransformStamped); 
+}
+
 namespace grid_map
 {
   class GridMap;
@@ -108,7 +113,8 @@ public:
   //             autoware_msgs::Lane& out_trajectory,
   //             std::vector<autoware_msgs::Lane>& out_debug_trajectories,
   //             std::vector<geometry_msgs::Point>& out_reference_points);
-  void doPlan(const geometry_msgs::PoseStamped& in_current_pose,
+  void doPlan(const geometry_msgs::TransformStamped& lidar2map_tf,
+              const geometry_msgs::PoseStamped& in_current_pose,
               const grid_map::GridMap& grid_map,
               const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints,
               std::vector<autoware_msgs::Waypoint>& out_waypoints);

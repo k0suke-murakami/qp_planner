@@ -1,12 +1,17 @@
 #include <autoware_msgs/Waypoint.h>
+#include <geometry_msgs/TransformStamped.h>
 
-// #include <tf2/utils.h>
+#include <tf2/utils.h>
 // #include <tf/transform_datatypes.h>
 
 //headers in Eigen
 // #include <Eigen/Dense>
 #include <distance_transform/distance_transform.hpp>
 #include <grid_map_core/GridMap.hpp>
+#include <qpOASES.hpp>
+
+#include "reference_path.h"
+
 
 #include "qp_planner.h"
 // #include "vectormap_struct.h"
@@ -61,9 +66,10 @@ QPPlanner::~QPPlanner()
 
 
 void QPPlanner::doPlan(
+  const geometry_msgs::TransformStamped& lidar2map_tf,
   const geometry_msgs::PoseStamped& in_current_pose,
   const grid_map::GridMap& grid_map,
-  const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints,
+  const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints_in_lidar,
   std::vector<autoware_msgs::Waypoint>& out_waypoints)
 {
   // 1. 現在日時を取得
@@ -117,7 +123,187 @@ void QPPlanner::doPlan(
   std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
   // 経過時間を取得
   std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
-  std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  std::cout <<"distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin2 = std::chrono::high_resolution_clock::now();
+
+  std::vector<double> tmp_x;
+  std::vector<double> tmp_y;
+  for(const auto& point: in_reference_waypoints_in_lidar)
+  {
+    tmp_x.push_back(point.pose.pose.position.x);
+    tmp_y.push_back(point.pose.pose.position.y);
+  }
+  ReferencePath reference_path(tmp_x, tmp_y, 0.2);
+  
+  // 経過時間を取得
+  std::chrono::high_resolution_clock::time_point end2 = std::chrono::high_resolution_clock::now();
+  std::chrono::nanoseconds elapsed_time2 = 
+  std::chrono::duration_cast<std::chrono::nanoseconds>(end2 - begin2);
+  std::cout <<"frenet transform " <<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
+  
+  int number_of_sampling_points = 200;
+  std::vector<double> lateral_reference_point_vec;
+  std::vector<double> longitudinal_reference_point_vec;
+  std::vector<double> lower_bound_vec;
+  std::vector<double> upper_bound_vec;
+  for(size_t i = 0; i < number_of_sampling_points; i++)
+  {
+    lateral_reference_point_vec.push_back(reference_path.y_[i]);
+    longitudinal_reference_point_vec.push_back(reference_path.x_[i]);
+    lower_bound_vec.push_back(-100);
+    upper_bound_vec.push_back(100);
+  }
+  
+  // int number_of_sampling_points =200;
+  qpOASES::QProblemB solver(number_of_sampling_points);
+  
+  solver.setPrintLevel(qpOASES::PL_NONE);
+  double h_matrix[number_of_sampling_points*number_of_sampling_points];
+  double g_matrix[number_of_sampling_points];
+  // double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
+  double lower_bound[number_of_sampling_points];
+  double upper_bound[number_of_sampling_points];
+  double constrain[number_of_sampling_points];
+  Eigen::MatrixXd a_constraint = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
+  
+  
+  Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
+  Eigen::MatrixXd tmp_a2(number_of_sampling_points, number_of_sampling_points);
+  Eigen::MatrixXd tmp_a3(number_of_sampling_points, number_of_sampling_points);
+  // Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
+  Eigen::VectorXd tmp_b1(number_of_sampling_points);
+  Eigen::VectorXd tmp_b2(number_of_sampling_points);
+  Eigen::VectorXd tmp_b3(number_of_sampling_points);
+  for (int r = 0; r < number_of_sampling_points; ++r)
+  {
+    tmp_b1(r) = lateral_reference_point_vec[r];
+    tmp_b2(r) = 0;
+    tmp_b3(r) = 0;
+    for (int c = 0; c < number_of_sampling_points; ++c)
+    {
+      if(c==r && c != number_of_sampling_points-1)
+      {
+        tmp_a2(r, c) = 1;
+      }
+      else if(c - r == 1)
+      {
+        tmp_a2(r, c) = -1;
+      }
+      else
+      {
+        tmp_a2(r, c) = 0;
+      }
+      
+      if(r == number_of_sampling_points-1 || r == number_of_sampling_points - 2)
+      {
+        tmp_a3(r, c) = 0;
+      }
+      else if(c==r)
+      {
+        tmp_a3(r, c) = 1;
+      }
+      else if(c - r == 1)
+      {
+        tmp_a3(r, c) = -2;
+      }
+      else if(c - r == 2)
+      {
+        tmp_a3(r, c) = 1;
+      }
+      else
+      {
+        tmp_a3(r, c) = 0;
+      }    
+    }
+  }
+  
+  double w1 = 0.00001;
+  double w3 = 1.0;
+  // double w1 = 1.0;
+  // double w3 = 1.0;
+  Eigen::MatrixXd tmp_a = w1*tmp_a1.transpose()*tmp_a1 + 
+                          // tmp_a2.transpose()*tmp_a2 +
+                          w3*tmp_a3.transpose()*tmp_a3;
+  Eigen::MatrixXd tmp_b = -1*(w1*tmp_b1.transpose()*tmp_a1 +
+                              // tmp_b2.transpose()*tmp_a2 +
+                              w3*tmp_b3.transpose()*tmp_a3);
+  
+  // Eigen::MatrixXd tmp_a_constrain = 
+  //                         tmp_a2.transpose()*tmp_a2;
+  
+  
+  
+  int index = 0;
+
+  for (int r = 0; r < number_of_sampling_points; ++r)
+  {
+    for (int c = 0; c < number_of_sampling_points; ++c)
+    {
+      h_matrix[index] = tmp_a(r, c);
+      // h_matrix[index] = tmp_a_constrain(r, c);
+      // a_constraint_matrix[index] = a_constraint(r, c);
+      // a_constraint_matrix[index] = tmp_a_constrain(r, c);
+      index++;
+    }
+  }
+  
+  for (int i = 0; i < number_of_sampling_points; ++i)
+  {
+    lower_bound[i] = lower_bound_vec[i];
+    upper_bound[i] = upper_bound_vec[i];
+    // g_matrix[i] = -1*lateral_reference_point_vec[i];
+    g_matrix[i] = tmp_b(i);
+    // constrain[i] = lateral_reference_point_vec[i];
+    // constrain[i] = 0;
+    // std::cerr << "constrain " << constrain[i] << std::endl;
+  }
+  
+  lower_bound[38] = 1;
+  lower_bound[39] = 1;
+  lower_bound[40] = 1;
+  lower_bound[41] = 1;
+  lower_bound[42] = 1;
+  lower_bound[43] = 1;
+  upper_bound[38] = 3;
+  upper_bound[39] = 3;
+  upper_bound[40] = 3;
+  upper_bound[41] = 3;
+  upper_bound[42] = 3;
+  upper_bound[43] = 3;
+  
+  int max_iter = 500;
+  
+    
+  auto ret = solver.init(h_matrix, g_matrix, 
+                         lower_bound, upper_bound, 
+                         max_iter); 
+  double result[number_of_sampling_points];
+  solver.getPrimalSolution(result);
+  
+  for(size_t i = 1; i < number_of_sampling_points; i++)
+  {
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
+    pose_in_lidar_tf.position.y = result[i];
+    pose_in_lidar_tf.position.z = in_reference_waypoints_in_lidar.front().pose.pose.position.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    out_waypoints.push_back(waypoint); 
+  }
+  
+  // 経過時間を取得
+  std::chrono::high_resolution_clock::time_point end3 = std::chrono::high_resolution_clock::now();  
+  std::chrono::nanoseconds elapsed_time3 = 
+  std::chrono::duration_cast<std::chrono::nanoseconds>(end3 - begin3);
+  std::cout <<"solve " <<elapsed_time3.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
 }
 

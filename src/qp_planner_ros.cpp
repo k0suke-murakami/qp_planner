@@ -349,7 +349,8 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     
     
     std::vector<autoware_msgs::Waypoint> out_waypoints;
-    qp_planner_ptr_->doPlan(*in_pose_ptr_,
+    qp_planner_ptr_->doPlan(*lidar2map_tf_,
+                            *in_pose_ptr_,
                             grid_map,
                             debug_modified_smoothed_reference_path_in_lidar_,
                             out_waypoints);
@@ -521,6 +522,25 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       debug_modified_smoothed_reference_points.points.push_back(waypoint.pose.pose.position);
     }
     points_marker_array.markers.push_back(debug_modified_smoothed_reference_points);
+    unique_id++;
+    
+     // visualize out_waypoints
+    visualization_msgs::Marker qp_waypoints_marker;
+    qp_waypoints_marker.lifetime = ros::Duration(0.2);
+    qp_waypoints_marker.header = in_pose_ptr_->header;
+    qp_waypoints_marker.ns = std::string("qp_waypoints_marker");
+    qp_waypoints_marker.action = visualization_msgs::Marker::MODIFY;
+    qp_waypoints_marker.pose.orientation.w = 1.0;
+    qp_waypoints_marker.id = unique_id;
+    qp_waypoints_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    qp_waypoints_marker.scale.x = 0.9;
+    qp_waypoints_marker.color.r = 1.0f;
+    qp_waypoints_marker.color.a = 0.6;
+    for(const auto& waypoint: out_waypoints)
+    {
+      qp_waypoints_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(qp_waypoints_marker);
     unique_id++;
     
     
