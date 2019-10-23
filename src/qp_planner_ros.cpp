@@ -45,7 +45,7 @@
 
 #include "qp_planner_ros.h"
 
-FrenetPlannerROS::FrenetPlannerROS()
+QPPlannerROS::QPPlannerROS()
   : nh_(), 
   private_nh_("~"),
   use_global_waypoints_as_center_line_(true),
@@ -53,73 +53,74 @@ FrenetPlannerROS::FrenetPlannerROS()
   got_modified_reference_path_(false)
 {
   double timer_callback_delta_second;
-  private_nh_.param<double>("timer_callback_delta_second", timer_callback_delta_second, 0.1);
+  private_nh_.param<double>("timer_callback_delta_second", 
+     timer_callback_delta_second, 0.1);
   
-  double initial_velocity_kmh;
-  double velcity_kmh_before_obstalcle;
-  double distance_before_obstalcle;
-  double obstacle_radius_from_center_point;
-  double min_lateral_referencing_offset_for_avoidance;
-  double max_lateral_referencing_offset_for_avoidance;
-  double diff_waypoints_cost_coef;
-  double diff_last_waypoint_cost_coef;
-  double jerk_cost_coef;
-  double required_time_cost_coef;
-  double comfort_acceleration_cost_coef;
-  double lookahead_distance_per_kmh_for_reference_point;
-  double converge_distance_per_kmh_for_stop;
-  double linear_velocity_kmh;
+  // double initial_velocity_kmh;
+  // double velcity_kmh_before_obstalcle;
+  // double distance_before_obstalcle;
+  // double obstacle_radius_from_center_point;
+  // double min_lateral_referencing_offset_for_avoidance;
+  // double max_lateral_referencing_offset_for_avoidance;
+  // double diff_waypoints_cost_coef;
+  // double diff_last_waypoint_cost_coef;
+  // double jerk_cost_coef;
+  // double required_time_cost_coef;
+  // double comfort_acceleration_cost_coef;
+  // double lookahead_distance_per_kmh_for_reference_point;
+  // double converge_distance_per_kmh_for_stop;
+  // double linear_velocity_kmh;
   
   double min_radius;
   
-  private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
-  private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
-  private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
-  private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 4.0);
-  private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
-  private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
-  private_nh_.param<double>("diff_waypoints_cost_coef", diff_waypoints_cost_coef, 0.0);
-  private_nh_.param<double>("diff_last_waypoint_cost_coef", diff_last_waypoint_cost_coef, 1.0);
-  private_nh_.param<double>("jerk_cost_coef", jerk_cost_coef, 0.25);
-  private_nh_.param<double>("required_time_cost_coef", required_time_cost_coef, 1.0);
-  private_nh_.param<double>("comfort_acceleration_cost_coef", comfort_acceleration_cost_coef, 0.0);
-  private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
-  private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
-  private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
-  private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
+  // private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
+  // private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
+  // private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
+  // private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 4.0);
+  // private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
+  // private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
+  // private_nh_.param<double>("diff_waypoints_cost_coef", diff_waypoints_cost_coef, 0.0);
+  // private_nh_.param<double>("diff_last_waypoint_cost_coef", diff_last_waypoint_cost_coef, 1.0);
+  // private_nh_.param<double>("jerk_cost_coef", jerk_cost_coef, 0.25);
+  // private_nh_.param<double>("required_time_cost_coef", required_time_cost_coef, 1.0);
+  // private_nh_.param<double>("comfort_acceleration_cost_coef", comfort_acceleration_cost_coef, 0.0);
+  // private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
+  // private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
+  // private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
+  // private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
   private_nh_.param<double>("min_radius", min_radius, 1.6);
-  const double kmh2ms = 0.2778;
-  const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
-  const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
-  double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
-  double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
-  double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
-  qp_planner_ptr_.reset(
-    new FrenetPlanner(
-        initial_velocity_ms,
-        velocity_ms_before_obstacle,
-        distance_before_obstalcle,
-        obstacle_radius_from_center_point,
-        min_lateral_referencing_offset_for_avoidance,
-        max_lateral_referencing_offset_for_avoidance,
-        diff_waypoints_cost_coef,
-        diff_last_waypoint_cost_coef,
-        jerk_cost_coef,
-        required_time_cost_coef,
-        comfort_acceleration_cost_coef,
-        lookahead_distance_per_ms_for_reference_point,
-        converge_distance_per_ms_for_stop,
-        linear_velocity_ms));
-  // TODO: assume that vectormap is already published when constructing FrenetPlannerROS
-  if(!use_global_waypoints_as_center_line_)
-  {
-    vectormap_load_ptr_.reset(new VectorMap());
-    loadVectormap();
-  }
-  else
-  {
-    calculate_center_line_ptr_.reset(new CalculateCenterLine());
-  }
+  // const double kmh2ms = 0.2778;
+  // const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
+  // const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
+  // double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
+  // double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
+  // double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
+  // qp_planner_ptr_.reset(
+  //   new QPPlanner(
+  //       initial_velocity_ms,
+  //       velocity_ms_before_obstacle,
+  //       distance_before_obstalcle,
+  //       obstacle_radius_from_center_point,
+  //       min_lateral_referencing_offset_for_avoidance,
+  //       max_lateral_referencing_offset_for_avoidance,
+  //       diff_waypoints_cost_coef,
+  //       diff_last_waypoint_cost_coef,
+  //       jerk_cost_coef,
+  //       required_time_cost_coef,
+  //       comfort_acceleration_cost_coef,
+  //       lookahead_distance_per_ms_for_reference_point,
+  //       converge_distance_per_ms_for_stop,
+  //       linear_velocity_ms));
+  // TODO: assume that vectormap is already published when constructing QPPlannerROS
+  // if(!use_global_waypoints_as_center_line_)
+  // {
+  //   vectormap_load_ptr_.reset(new VectorMap());
+  //   loadVectormap();
+  // }
+  // else
+  // {
+  //   calculate_center_line_ptr_.reset(new CalculateCenterLine());
+  // }
   modified_reference_path_generator_ptr_.reset(
     new ModifiedReferencePathGenerator(
       min_radius));
@@ -131,39 +132,39 @@ FrenetPlannerROS::FrenetPlannerROS()
   optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("safety_waypoints", 1, true);
   markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("qp_planner_debug_markes", 1, true);
   gridmap_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("gridmap_pointcloud", 1, true);
-  final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &FrenetPlannerROS::waypointsCallback, this);
-  current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
-  current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &FrenetPlannerROS::currentVelocityCallback, this);
-  objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &FrenetPlannerROS::objectsCallback, this);
-  grid_map_sub_ = nh_.subscribe("/semantics/costmap", 1, &FrenetPlannerROS::gridmapCallback, this);
+  final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &QPPlannerROS::waypointsCallback, this);
+  current_pose_sub_ = nh_.subscribe("/current_pose", 1, &QPPlannerROS::currentPoseCallback, this);
+  current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &QPPlannerROS::currentVelocityCallback, this);
+  objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &QPPlannerROS::objectsCallback, this);
+  grid_map_sub_ = nh_.subscribe("/semantics/costmap", 1, &QPPlannerROS::gridmapCallback, this);
   // double timer_callback_dt = 0.05;
   // double timer_callback_dt = 0.1;
   // double timer_callback_dt = 1.0;
   // double timer_callback_dt = 0.5;
-  timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &FrenetPlannerROS::timerCallback, this);
+  timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &QPPlannerROS::timerCallback, this);
 }
 
-FrenetPlannerROS::~FrenetPlannerROS()
+QPPlannerROS::~QPPlannerROS()
 {
 }
 
 
-void FrenetPlannerROS::waypointsCallback(const autoware_msgs::Lane& msg)
+void QPPlannerROS::waypointsCallback(const autoware_msgs::Lane& msg)
 {
   in_waypoints_ptr_.reset(new autoware_msgs::Lane(msg));
 }
 
-void FrenetPlannerROS::currentPoseCallback(const geometry_msgs::PoseStamped & msg)
+void QPPlannerROS::currentPoseCallback(const geometry_msgs::PoseStamped & msg)
 {
   in_pose_ptr_.reset(new geometry_msgs::PoseStamped(msg));
 }
 
-void FrenetPlannerROS::currentVelocityCallback(const geometry_msgs::TwistStamped& msg)
+void QPPlannerROS::currentVelocityCallback(const geometry_msgs::TwistStamped& msg)
 {
   in_twist_ptr_.reset(new geometry_msgs::TwistStamped(msg));
 }
 
-void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
+void QPPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
 { 
   if(in_waypoints_ptr_)
   {
@@ -191,7 +192,7 @@ void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
   }
 }
 
-void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
+void QPPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
 {
   if(in_waypoints_ptr_)
   {
@@ -229,7 +230,7 @@ void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray&
   }
 }
 
-void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
+void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
 {
   if(!in_pose_ptr_)
   {
@@ -336,9 +337,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
         std::cerr << "modified size " << modified_reference_path_.size() << std::endl;
       }
       
-      center_line_points_
-      = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
-        modified_reference_path_);
       debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
       gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
     }
@@ -347,8 +345,18 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
     // 経過時間を取得
     std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+    std::cout <<"modified global path " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
+    
+    std::vector<autoware_msgs::Waypoint> out_waypoints;
+    qp_planner_ptr_->doPlan(*in_pose_ptr_,
+                            grid_map,
+                            debug_modified_smoothed_reference_path_in_lidar_,
+                            out_waypoints);
+    std::cerr << "--------------" << std::endl;
+    // center_line_points_
+    // = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
+    //   modified_reference_path_);
     
     // autoware_msgs::Lane out_trajectory;
     // std::vector<autoware_msgs::Lane> out_debug_trajectories;
@@ -783,26 +791,9 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
   }
 }
 
-void FrenetPlannerROS::loadVectormap()
-{
-  vectormap_load_ptr_->load();
-}
+// void QPPlannerROS::loadVectormap()
+// {
+//   vectormap_load_ptr_->load();
+// }
 
-// TODO: make this faster by kd-tree
-Point FrenetPlannerROS::getNearestPoint(const geometry_msgs::PoseStamped& ego_pose)
-{
-  double min_dist = 99999;
-  Point nearest_point;
-  for(const auto& point: vectormap_load_ptr_->points_)
-  {
-    double dx = ego_pose.pose.position.x - point.tx;
-    double dy = ego_pose.pose.position.y - point.ty;
-    double dist = std::sqrt(std::pow(dx, 2)+std::pow(dy, 2));
-    if(dist < min_dist)
-    {
-      min_dist = dist;
-      nearest_point = point;
-    }
-  }
-  return nearest_point;
-}
+// // TODO: make_

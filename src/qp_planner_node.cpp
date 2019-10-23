@@ -21,7 +21,7 @@
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "qp_planner");
-  FrenetPlannerROS node;
+  QPPlannerROS node;
   ros::spin();
   return 0;
 }

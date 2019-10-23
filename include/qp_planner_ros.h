@@ -25,7 +25,7 @@ namespace tf2_ros
   class TransformListener;
 }
 
-class FrenetPlanner;
+class QPPlanner;
 class VectorMap;
 class CalculateCenterLine;
 class ModifiedReferencePathGenerator;
@@ -54,12 +54,12 @@ namespace geometry_msgs
   ROS_DECLARE_MESSAGE(TransformStamped);
 }
 
-class FrenetPlannerROS
+class QPPlannerROS
 {
 public:
 
-  FrenetPlannerROS();
-  ~FrenetPlannerROS();
+  QPPlannerROS();
+  ~QPPlannerROS();
   void run();
 
 private:
@@ -106,7 +106,7 @@ private:
   std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
   std::unique_ptr<grid_map_msgs::GridMap> in_gridmap_ptr_;
   
-  std::unique_ptr<FrenetPlanner> qp_planner_ptr_;
+  std::unique_ptr<QPPlanner> qp_planner_ptr_;
   std::unique_ptr<VectorMap> vectormap_load_ptr_;
   std::unique_ptr<CalculateCenterLine> calculate_center_line_ptr_;
   std::unique_ptr<ModifiedReferencePathGenerator> modified_reference_path_generator_ptr_;
