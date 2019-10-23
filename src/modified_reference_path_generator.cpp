@@ -16,7 +16,7 @@
 
 #include <chrono>
 #include "modified_reference_path_generator.h"
-
+#include "reference_path.h"
 
 class Node
 {
@@ -442,7 +442,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
-    std::vector<autoware_msgs::Waypoint>& debug_bspline_path,
+    std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_in_lidar,
     std::vector<autoware_msgs::Waypoint>& debug_qp_path,
     std::vector<autoware_msgs::Waypoint>& debug_collision_point,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
@@ -503,6 +503,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     }
   }
   
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
   
   clearance_map[layer_name] = grid_data;
   grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
@@ -762,11 +764,30 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     }
   } while (new_j < prev_j);
   
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds chunk_elapsed_time = 
+     std::chrono::duration_cast<std::chrono::nanoseconds>(
+       end_a_star_plus_rule_smooth - begin_a_star_plus_rule_smooth);
+  std::cout <<"a star + rule smooth " <<chunk_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  
+  
+  std::vector<double> tmp_x;
+  std::vector<double> tmp_y;
   for(const auto& point: refined_path)
   {
     // std::cerr << "poitn " << point.position(0) << std::endl;
-    geometry_msgs::Pose pose_in_lidar_tf;
+    tmp_x.push_back(point.position(0));
+    tmp_y.push_back(point.position(1));
+    autoware_msgs::Waypoint waypoint_in_lidar;
+    waypoint_in_lidar.pose.pose.position.x = point.position(0);
+    waypoint_in_lidar.pose.pose.position.y = point.position(1);
+    waypoint_in_lidar.pose.pose.position.z = start_point_in_lidar_tf.z;
+    waypoint_in_lidar.pose.pose.orientation.z = 1.0;
+    debug_modified_smoothed_reference_path_in_lidar.push_back(waypoint_in_lidar);
     
+    geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = point.position(0);
     pose_in_lidar_tf.position.y = point.position(1);
     pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
@@ -779,19 +800,40 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
   
-  // for(const auto& point: refined_path)
-  // {
-  //     std::cerr << "refined point " << point.position(0) << " "<< point.position(1) << std::endl;
-  // }
-  
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin_spline = std::chrono::high_resolution_clock::now();
+    
+  ReferencePath reference_path(tmp_x, tmp_y, 0.2);
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end_spline = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds cspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_spline - begin_spline);
+  std::cout <<"cubic spline interpolation " <<cspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  int number_of_sampling_points = 200;
+  debug_modified_smoothed_reference_path.clear();
+  for(size_t i = 0;i < number_of_sampling_points; i++)
+  {
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = reference_path.x_[i];
+    pose_in_lidar_tf.position.y = reference_path.y_[i];
+    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    debug_modified_smoothed_reference_path.push_back(waypoint);   
+  }
+  std::cerr << "debug_modified_smoothed_path" << debug_modified_smoothed_reference_path.size() << std::endl;
   
   //bspline
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin_bspline = std::chrono::high_resolution_clock::now();
   int number_of_control_points = refined_path.size();
   int degree_of_b_spline = 3;
   int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
   std::vector<double> knot_vector =  
      generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  int number_of_sampling_points = 200;
   double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
   std::vector<double> lower_bound_vec;
   std::vector<double> upper_bound_vec;
@@ -868,9 +910,15 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
     autoware_msgs::Waypoint waypoint;
     waypoint.pose.pose = pose_in_map_tf;
-    debug_bspline_path.push_back(waypoint);
     modified_reference_path.push_back(waypoint); 
   }
+  
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end_bspline = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds bspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_bspline - begin_bspline);
+  std::cout <<"bspline interpolation " <<bspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  
   
   // std::cerr << "num low vec " << lower_bound_vec.size() << std::endl;
   // std::cerr << "num up vec " << upper_bound_vec.size() << std::endl;
@@ -992,12 +1040,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   upper_bound[42] = 3;
   upper_bound[43] = 3;
   
-  // solver = qpOASES::SQProblem(kNumOfOffsetRows, kNumOfOffsetRows);
   int max_iter = 500;
-  // auto ret = solver.init(h_matrix, g_matrix, a_constraint_matrix, 
-  //                        lower_bound, upper_bound, 
-  //                        constrain, constrain,
-  //                        max_iter); 
+  
   // 1. 現在日時を取得
   std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     
