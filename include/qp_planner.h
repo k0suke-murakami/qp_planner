@@ -130,7 +130,7 @@ public:
   
 private:
   bool is_solver_initialized_;
-  double number_of_sampling_points_;
+  int number_of_sampling_points_;
 
   // qpOASES::QProblemB solver_;
   

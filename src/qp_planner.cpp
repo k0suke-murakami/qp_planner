@@ -166,14 +166,13 @@ void QPPlanner::doPlan(
   // 1. 現在日時を取得
   // std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
   
-  int number_of_sampling_points = 200;
   
   //TODO: delete this chunk; unnecessary
   std::vector<double> lateral_reference_point_vec;
   std::vector<double> longitudinal_reference_point_vec;
   std::vector<double> lower_bound_vec;
   std::vector<double> upper_bound_vec;
-  for(size_t i = 0; i < number_of_sampling_points; i++)
+  for(size_t i = 0; i < number_of_sampling_points_; i++)
   {
     lateral_reference_point_vec.push_back(reference_path.y_[i]);
     longitudinal_reference_point_vec.push_back(reference_path.x_[i]);
@@ -183,30 +182,30 @@ void QPPlanner::doPlan(
   
   
   
-  double h_matrix[number_of_sampling_points*number_of_sampling_points];
-  double g_matrix[number_of_sampling_points];
-  // double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
-  double lower_bound[number_of_sampling_points];
-  double upper_bound[number_of_sampling_points];
-  double constrain[number_of_sampling_points];
-  Eigen::MatrixXd a_constraint = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
+  double h_matrix[number_of_sampling_points_*number_of_sampling_points_];
+  double g_matrix[number_of_sampling_points_];
+  // double a_constraint_matrix[number_of_sampling_points_*number_of_sampling_points_];
+  double lower_bound[number_of_sampling_points_];
+  double upper_bound[number_of_sampling_points_];
+  double constrain[number_of_sampling_points_];
+  Eigen::MatrixXd a_constraint = Eigen::MatrixXd::Identity(number_of_sampling_points_, number_of_sampling_points_);
   
   
-  Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
-  Eigen::MatrixXd tmp_a2(number_of_sampling_points, number_of_sampling_points);
-  Eigen::MatrixXd tmp_a3(number_of_sampling_points, number_of_sampling_points);
-  // Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
-  Eigen::VectorXd tmp_b1(number_of_sampling_points);
-  Eigen::VectorXd tmp_b2(number_of_sampling_points);
-  Eigen::VectorXd tmp_b3(number_of_sampling_points);
-  for (int r = 0; r < number_of_sampling_points; ++r)
+  Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points_, number_of_sampling_points_);
+  Eigen::MatrixXd tmp_a2(number_of_sampling_points_, number_of_sampling_points_);
+  Eigen::MatrixXd tmp_a3(number_of_sampling_points_, number_of_sampling_points_);
+  // Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points_,number_of_sampling_points_);
+  Eigen::VectorXd tmp_b1(number_of_sampling_points_);
+  Eigen::VectorXd tmp_b2(number_of_sampling_points_);
+  Eigen::VectorXd tmp_b3(number_of_sampling_points_);
+  for (int r = 0; r < number_of_sampling_points_; ++r)
   {
     tmp_b1(r) = lateral_reference_point_vec[r];
     tmp_b2(r) = 0;
     tmp_b3(r) = 0;
-    for (int c = 0; c < number_of_sampling_points; ++c)
+    for (int c = 0; c < number_of_sampling_points_; ++c)
     {
-      if(c==r && c != number_of_sampling_points-1)
+      if(c==r && c != number_of_sampling_points_-1)
       {
         tmp_a2(r, c) = 1;
       }
@@ -219,7 +218,7 @@ void QPPlanner::doPlan(
         tmp_a2(r, c) = 0;
       }
       
-      if(r == number_of_sampling_points-1 || r == number_of_sampling_points - 2)
+      if(r == number_of_sampling_points_-1 || r == number_of_sampling_points_ - 2)
       {
         tmp_a3(r, c) = 0;
       }
@@ -260,9 +259,9 @@ void QPPlanner::doPlan(
   
   int index = 0;
 
-  for (int r = 0; r < number_of_sampling_points; ++r)
+  for (int r = 0; r < number_of_sampling_points_; ++r)
   {
-    for (int c = 0; c < number_of_sampling_points; ++c)
+    for (int c = 0; c < number_of_sampling_points_; ++c)
     {
       h_matrix[index] = tmp_a(r, c);
       // h_matrix[index] = tmp_a_constrain(r, c);
@@ -273,14 +272,20 @@ void QPPlanner::doPlan(
   }
   
   
-  for (int i = 0; i < number_of_sampling_points; ++i)
+  for (int i = 0; i < number_of_sampling_points_; ++i)
   {
     lower_bound[i] = lower_bound_vec[i];
     upper_bound[i] = upper_bound_vec[i];
     g_matrix[i] = tmp_b(i);
   }
 
-  // for (int i = 0; i < number_of_sampling_points; ++i)
+  // for (int i = 0; i < number_of_sampling_points_; ++i)
+  // {
+    
+  // }
+  
+  
+  // for (int i = 0; i < number_of_sampling_points__; ++i)
   // {
   //   double p_x = reference_path.x_[i];
   //   double p_y = reference_path.y_[i];
@@ -468,11 +473,11 @@ void QPPlanner::doPlan(
   // auto ret = solver.init(h_matrix, g_matrix, 
   //                        lower_bound, upper_bound, 
   //                        max_iter); 
-  // double result[number_of_sampling_points];
+  // double result[number_of_sampling_points__];
   // solver.getPrimalSolution(result);
   
   
-  double result[number_of_sampling_points];
+  double result[number_of_sampling_points_];
   solver_ptr_->getPrimalSolution(result);
   
   // 経過時間を取得
@@ -481,7 +486,7 @@ void QPPlanner::doPlan(
   std::chrono::duration_cast<std::chrono::nanoseconds>(end3 - begin3);
   std::cout <<"solve " <<elapsed_time3.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
-  for(size_t i = 1; i < number_of_sampling_points; i++)
+  for(size_t i = 1; i < number_of_sampling_points_; i++)
   {
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
