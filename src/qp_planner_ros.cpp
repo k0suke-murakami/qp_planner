@@ -95,22 +95,7 @@ QPPlannerROS::QPPlannerROS()
   // double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
   // double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
   // double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
-  // qp_planner_ptr_.reset(
-  //   new QPPlanner(
-  //       initial_velocity_ms,
-  //       velocity_ms_before_obstacle,
-  //       distance_before_obstalcle,
-  //       obstacle_radius_from_center_point,
-  //       min_lateral_referencing_offset_for_avoidance,
-  //       max_lateral_referencing_offset_for_avoidance,
-  //       diff_waypoints_cost_coef,
-  //       diff_last_waypoint_cost_coef,
-  //       jerk_cost_coef,
-  //       required_time_cost_coef,
-  //       comfort_acceleration_cost_coef,
-  //       lookahead_distance_per_ms_for_reference_point,
-  //       converge_distance_per_ms_for_stop,
-  //       linear_velocity_ms));
+  qp_planner_ptr_.reset(new QPPlanner());
   // TODO: assume that vectormap is already published when constructing QPPlannerROS
   // if(!use_global_waypoints_as_center_line_)
   // {

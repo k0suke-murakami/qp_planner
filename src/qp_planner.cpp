@@ -9,6 +9,10 @@
 #include <distance_transform/distance_transform.hpp>
 #include <grid_map_core/GridMap.hpp>
 #include <qpOASES.hpp>
+#include <qpOASES/QProblem.hpp>
+// #include <qpoases_vendor/qpOASES.hpp>
+
+#include <memory>
 
 #include "reference_path.h"
 
@@ -31,6 +35,7 @@
 //   double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
 //   return distance;
 // }
+
 
 // // ref: http://www.mech.tohoku-gakuin.ac.jp/rde/contents/course/robotics/coordtrans.html
 // // (pu, pv): retative, (px, py): absolute, (ox, oy): origin
@@ -56,14 +61,29 @@
 // }
 
 
-QPPlanner::QPPlanner()
+QPPlanner::QPPlanner():
+number_of_sampling_points_(200),
+is_solver_initialized_(false)
 {
+  solver_ptr_.reset(new qpOASES::QProblemB(number_of_sampling_points_));
+  solver_ptr_->setPrintLevel(qpOASES::PL_NONE);
+  
+  //  sqProblem_ = std::unique_ptr<qpOASES::SQProblem>(
+  //       new qpOASES::SQProblem(200, 200));
 }
 
 QPPlanner::~QPPlanner()
 {
 }
 
+double QPPlanner::calculate2DDistace(const Eigen::Vector2d& point1,
+                          const Eigen::Vector2d& point2)
+{
+  double dx = point1(0) - point2(0);
+  double dy = point1(1) - point2(1);
+  double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+  return distance;
+}
 
 void QPPlanner::doPlan(
   const geometry_msgs::TransformStamped& lidar2map_tf,
@@ -144,9 +164,11 @@ void QPPlanner::doPlan(
   std::cout <<"frenet transform " <<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
   // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
+  // std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
   
   int number_of_sampling_points = 200;
+  
+  //TODO: delete this chunk; unnecessary
   std::vector<double> lateral_reference_point_vec;
   std::vector<double> longitudinal_reference_point_vec;
   std::vector<double> lower_bound_vec;
@@ -159,10 +181,8 @@ void QPPlanner::doPlan(
     upper_bound_vec.push_back(100);
   }
   
-  // int number_of_sampling_points =200;
-  qpOASES::QProblemB solver(number_of_sampling_points);
   
-  solver.setPrintLevel(qpOASES::PL_NONE);
+  
   double h_matrix[number_of_sampling_points*number_of_sampling_points];
   double g_matrix[number_of_sampling_points];
   // double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
@@ -252,16 +272,168 @@ void QPPlanner::doPlan(
     }
   }
   
+  
   for (int i = 0; i < number_of_sampling_points; ++i)
   {
     lower_bound[i] = lower_bound_vec[i];
     upper_bound[i] = upper_bound_vec[i];
-    // g_matrix[i] = -1*lateral_reference_point_vec[i];
     g_matrix[i] = tmp_b(i);
-    // constrain[i] = lateral_reference_point_vec[i];
-    // constrain[i] = 0;
-    // std::cerr << "constrain " << constrain[i] << std::endl;
   }
+
+  // for (int i = 0; i < number_of_sampling_points; ++i)
+  // {
+  //   double p_x = reference_path.x_[i];
+  //   double p_y = reference_path.y_[i];
+  //   Eigen::Vector2d origin_position;
+  //   origin_position << p_x, p_y;
+  //   Eigen::Vector2d frenet_s_vector;
+  //   // Eigen::Vector2d frenet_d_vector;
+  //   if(i==0)
+  //   {
+  //     double post_p_x = reference_path.x_[i+1];
+  //     double post_p_y = reference_path.y_[i+1];
+  //     frenet_s_vector << post_p_x - p_x , post_p_y - p_y;
+  //   }
+  //   else
+  //   {
+  //     double pre_p_x = reference_path.x_[i-1];
+  //     double pre_p_y = reference_path.y_[i-1];
+  //     frenet_s_vector << p_x - pre_p_x, p_y - pre_p_y;
+  //   }
+    
+  //   double yaw = reference_path.yaw_[i];
+  //   double yaw_to_right_edge = yaw - M_PI/2;
+  //   double yaw_to_left_edge = yaw + M_PI/2;
+  //   double resolution = grid_map.getResolution();
+  //   // double farthest_right_edge, farthest_left_edge;
+    
+  //   //find farthest_right_edge in gridmap
+  //   double past_p_x = p_x;
+  //   double past_p_y = p_y;
+  //   std::unique_ptr<Eigen::Vector2d> farthest_right_in_gridmap_ptr;
+  //   for(size_t j = 0; j < 100000; j++)
+  //   {
+  //     double new_p_x = past_p_x + std::cos(yaw_to_right_edge)*resolution;
+  //     double new_p_y = past_p_y + std::sin(yaw_to_right_edge)*resolution;
+  //     Eigen::Vector2d new_p;
+  //     new_p << new_p_x, new_p_y;
+  //     try 
+  //     {
+  //       double cost = grid_map.atPosition(layer_name,new_p);
+  //     }
+  //     catch (const std::out_of_range& e) 
+  //     {
+  //       // std::cerr << "farthest x " << past_p_x << std::endl;
+  //       // std::cerr << "farthest y " << past_p_y << std::endl;
+  //       Eigen::Vector2d farthest_right_in_gridmap;
+  //       farthest_right_in_gridmap<<past_p_y, past_p_y;
+  //       farthest_right_in_gridmap_ptr.reset(new Eigen::Vector2d(farthest_right_in_gridmap));
+  //       // std::cerr << "WARNING: could not find clearance for new_p " << std::endl;
+  //     }
+  //     past_p_x = new_p_x;
+  //     past_p_y = new_p_y;
+  //   }
+    
+  //   if(!farthest_right_in_gridmap_ptr)
+  //   {
+  //     std::cerr << "Error: Could not find farthest right" << std::endl;
+  //     return;
+  //   }
+    
+  //   // past_p_x = p_x;
+  //   // past_p_y = p_y;
+  //   // std::unique_ptr<double> farthest_right_edge_ptr;
+  //   // std::unique_ptr<double> farthest_left_edge_ptr;
+  //   // for(size_t j = 0; j < 10000; j++)
+  //   // {
+  //   //   double new_p_x = past_p_x + std::cos(yaw_to_left_edge)*resolution;
+  //   //   double new_p_y = past_p_y + std::sin(yaw_to_left_edge)*resolution;
+  //   //   Eigen::Vector2d new_p;
+  //   //   new_p << new_p_x, new_p_y;
+  //   //   if(!farthest_right_edge_ptr)
+  //   //   {
+  //   //     try 
+  //   //     {
+  //   //       double cost = grid_map.atPosition(layer_name,new_p);
+  //   //       if(cost < 0.001)
+  //   //       {
+  //   //         Eigen::Vector2d frenet_d_vector;
+  //   //         frenet_d_vector = new_p - origin_position;
+  //   //         double cross_product = frenet_s_vector(0)*frenet_d_vector(1) - 
+  //   //                                frenet_d_vector(0)*frenet_s_vector(1);
+  //   //         double farthest_right_edge = 
+  //   //            calculate2DDistace(origin_position, new_p);
+  //   //         if(cross_product<0)
+  //   //         {
+  //   //           farthest_right_edge*=-1;
+  //   //         }
+  //   //         farthest_right_edge_ptr.reset(new double(farthest_right_edge));
+  //   //       }
+  //   //     }
+  //   //     catch (const std::out_of_range& e) 
+  //   //     {
+  //   //       // std::cerr << "WARNING: could not find clearance for new_p " << std::endl;
+  //   //     }
+  //   //   }
+      
+  //     // if(farthest_right_edge_ptr&&!farthest_left_edge_ptr)
+  //     // {
+  //     //   try 
+  //     //   {
+  //     //     double cost = grid_map.atPosition(layer_name,new_p);
+  //     //     if(cost > 0.999)
+  //     //     {
+  //     //       Eigen::Vector2d frenet_d_vector;
+  //     //       frenet_d_vector = new_p - origin_position;
+  //     //       double cross_product = frenet_s_vector(0)*frenet_d_vector(1) - 
+  //     //                              frenet_d_vector(0)*frenet_s_vector(1);
+  //     //       double farthest_left_edge = 
+  //     //          calculate2DDistace(origin_position, new_p);
+  //     //       if(cross_product<0)
+  //     //       {
+  //     //         std::cerr << "new p x " << new_p(0) << std::endl;
+  //     //         std::cerr << "new p y " << new_p(1) << std::endl;
+  //     //         farthest_left_edge*=-1;
+  //     //       }
+  //     //       farthest_right_edge_ptr.reset(new double(farthest_left_edge));
+  //     //     }
+  //     //   }
+  //     //   catch (const std::out_of_range& e) 
+  //     //   {
+  //     //     // std::cerr << "WARNING: could not find clearance for new_p " << std::endl;
+  //     //   }
+  //     // }
+  //     // past_p_x = new_p_x;
+  //     // past_p_y = new_p_y;
+  //     // if(farthest_left_edge_ptr && farthest_right_edge_ptr)
+  //     // {
+  //     //   std::cerr << "ssss"  << std::endl;
+  //     //   break;
+  //     // }
+  //   }
+    
+    
+  //   // double past_p_x = p_x;
+  //   // double past_p_y = p_y;
+  //   // for(size_t j = 0; j < 100; j++)
+  //   // {
+  //   //   double new_p_x = past_p_x + std::cos(yaw_to_right_edge)*resolution;
+  //   //   double new_p_y = past_p_y + std::sin(yaw_to_right_edge)*resolution;
+  //   //   Eigen::Vector2d current_position;
+  //   //   current_position << new_p_x, new_p_y;
+  //   //   frenet_d_vector  = current_position - origin_position;
+  //   //   double clearance = grid_map.atPosition(layer_name, current_position);
+  //   //   if(clearance < 0.001)
+  //   //   {
+  //   //     farthest_right_edge = calculate2DDistace(origin_position, current_position);
+  //   //   }
+      
+  //   // }
+    
+  //   // lower_bound[i] = lower_bound_vec[i];
+  //   // upper_bound[i] = upper_bound_vec[i];
+  //   // g_matrix[i] = tmp_b(i);
+  // }
   
   lower_bound[38] = 1;
   lower_bound[39] = 1;
@@ -278,12 +450,36 @@ void QPPlanner::doPlan(
   
   int max_iter = 500;
   
-    
-  auto ret = solver.init(h_matrix, g_matrix, 
-                         lower_bound, upper_bound, 
-                         max_iter); 
+  std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
+  if(!is_solver_initialized_)
+  {
+    auto ret = solver_ptr_->init(h_matrix, g_matrix, 
+                          lower_bound, upper_bound, 
+                          max_iter); 
+    is_solver_initialized_ = true;
+  }
+  else
+  {
+    std::cerr << "warm start"  << std::endl;
+    auto ret = solver_ptr_->hotstart(g_matrix, 
+                                     lower_bound, upper_bound, max_iter);
+  }
+  
+  // auto ret = solver.init(h_matrix, g_matrix, 
+  //                        lower_bound, upper_bound, 
+  //                        max_iter); 
+  // double result[number_of_sampling_points];
+  // solver.getPrimalSolution(result);
+  
+  
   double result[number_of_sampling_points];
-  solver.getPrimalSolution(result);
+  solver_ptr_->getPrimalSolution(result);
+  
+  // 経過時間を取得
+  std::chrono::high_resolution_clock::time_point end3 = std::chrono::high_resolution_clock::now();  
+  std::chrono::nanoseconds elapsed_time3 = 
+  std::chrono::duration_cast<std::chrono::nanoseconds>(end3 - begin3);
+  std::cout <<"solve " <<elapsed_time3.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   for(size_t i = 1; i < number_of_sampling_points; i++)
   {
@@ -299,11 +495,6 @@ void QPPlanner::doPlan(
     out_waypoints.push_back(waypoint); 
   }
   
-  // 経過時間を取得
-  std::chrono::high_resolution_clock::time_point end3 = std::chrono::high_resolution_clock::now();  
-  std::chrono::nanoseconds elapsed_time3 = 
-  std::chrono::duration_cast<std::chrono::nanoseconds>(end3 - begin3);
-  std::cout <<"solve " <<elapsed_time3.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
 }
 

@@ -43,6 +43,13 @@ namespace grid_map
   class GridMap;
 }
 
+// namespace qpOASES
+// {
+//   class QProblemB;
+// }
+
+// #include <qpOASES.hpp>
+
 // struct FrenetPoint
 // {
 //   Eigen::Vector4d s_state;
@@ -94,7 +101,7 @@ namespace grid_map
 //   double required_time;
 // };
 
-
+#include <qpOASES/QProblem.hpp>
 
 
 class QPPlanner
@@ -120,7 +127,20 @@ public:
               std::vector<autoware_msgs::Waypoint>& out_waypoints);
   
   
+  
 private:
+  bool is_solver_initialized_;
+  double number_of_sampling_points_;
+
+  // qpOASES::QProblemB solver_;
+  
+  // std::unique_ptr<qpOASES::SQProblem> sqProblem_;
+  std::unique_ptr<qpOASES::QProblemB> solver_ptr_;
+  
+  bool prepareQP();
+
+  double calculate2DDistace(const Eigen::Vector2d& point1,
+                            const Eigen::Vector2d& point2);
 };
   
 //   //initialize with rosparam
