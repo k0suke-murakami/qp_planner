@@ -444,11 +444,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_in_lidar,
     std::vector<autoware_msgs::Waypoint>& debug_qp_path,
-    std::vector<autoware_msgs::Waypoint>& debug_collision_point,
-    sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
+    std::vector<autoware_msgs::Waypoint>& debug_collision_point)
 {
   
-  std::cerr << "aaa " << min_radius_ << std::endl;
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix grid_data = clearance_map.get(layer_name);
 
@@ -472,22 +470,23 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       }
     }
   }
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
+  
   // Note: this is necessary at least at the first distance transform execution
   // and every time a reset is desired; it is not, instead, when updating
   dt::DistanceTransform::initializeIndices(indices);
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
   
   dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
   
+
   // 3. 現在日時を再度取得
   std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
   // 経過時間を取得
   std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
   std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-
   for (dope::SizeType i = 0; i < size[0]; ++i)
   {
     for (dope::SizeType j = 0; j < size[1]; ++j)
@@ -507,7 +506,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   std::chrono::high_resolution_clock::time_point begin_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
   
   clearance_map[layer_name] = grid_data;
-  grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
+  // grid_map::GridMapRosConverter::toPointCloud(clearance_map, layer_name, debug_pointcloud_clearance_map);
 
   geometry_msgs::Point start_point_in_lidar_tf, goal_point_in_lidar_tf;
   tf2::doTransform(start_point, start_point_in_lidar_tf, map2lidar_tf);
@@ -764,13 +763,6 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     }
   } while (new_j < prev_j);
   
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds chunk_elapsed_time = 
-     std::chrono::duration_cast<std::chrono::nanoseconds>(
-       end_a_star_plus_rule_smooth - begin_a_star_plus_rule_smooth);
-  std::cout <<"a star + rule smooth " <<chunk_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   
   std::vector<double> tmp_x;
@@ -799,16 +791,18 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     waypoint.cost = point.curvature;
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds chunk_elapsed_time = 
+     std::chrono::duration_cast<std::chrono::nanoseconds>(
+       end_a_star_plus_rule_smooth - begin_a_star_plus_rule_smooth);
+  std::cout <<"a star + rule smooth " <<chunk_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   // 1. 現在日時を取得
   std::chrono::high_resolution_clock::time_point begin_spline = std::chrono::high_resolution_clock::now();
     
   ReferencePath reference_path(tmp_x, tmp_y, 0.2);
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end_spline = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds cspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_spline - begin_spline);
-  std::cout <<"cubic spline interpolation " <<cspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   int number_of_sampling_points = 200;
   debug_modified_smoothed_reference_path.clear();
   for(size_t i = 0;i < number_of_sampling_points; i++)
@@ -824,280 +818,10 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     waypoint.pose.pose = pose_in_map_tf;
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
-  std::cerr << "debug_modified_smoothed_path" << debug_modified_smoothed_reference_path.size() << std::endl;
-  
-  //bspline
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin_bspline = std::chrono::high_resolution_clock::now();
-  int number_of_control_points = refined_path.size();
-  int degree_of_b_spline = 3;
-  int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
-  std::vector<double> knot_vector =  
-     generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
-  std::vector<double> lower_bound_vec;
-  std::vector<double> upper_bound_vec;
-  std::vector<double> lateral_reference_point_vec;
-  std::vector<double> longitudinal_reference_point_vec;
-  
-  for(double i = 0; i < 1; i += delta_function_value)
-  {
-    double sum_x = 0;
-    double sum_y = 0;
-    for (size_t conrtol_point_index = 0; 
-         conrtol_point_index < refined_path.size();
-         conrtol_point_index++)
-    {
-      double calculated_value = calaculateBasisFunction(knot_vector,
-                                                  conrtol_point_index,
-                                                  degree_of_b_spline,
-                                                  i);
-      sum_x += refined_path[conrtol_point_index].position(0)*calculated_value;
-      sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
-    }
-    
-    // std::cerr << "sumx " << sum_x << std::endl;
-    // std::cerr << "sumy " << sum_y << std::endl;
-    grid_map::Position a;
-    a(0) = sum_x;
-    a(1) = sum_y; 
-    grid_map::Index index;
-    clearance_map.getIndex(a, index);
-    for(int i = index(1); i >= 0; i--)
-    {
-      grid_map::Position position;
-      grid_map::Index target_index;
-      target_index = index;
-      target_index(1) = i;
-      clearance_map.getPosition(target_index, position);
-      float value = clearance_map.atPosition(layer_name, position)*clearance_to_m;
-      // std::cerr << "i " << i << "value "<< value<< std::endl;
-      if(value < 0.001)
-      {
-        // std::cerr << "left bound " << position(1) << std::endl;
-        upper_bound_vec.push_back(position(1));
-        break;
-      }
-    }
-    
-    for(int i = index(1); i <clearance_map.getSize()(1) ; i++)
-    {
-      grid_map::Position position;
-      grid_map::Index target_index;
-      target_index = index;
-      target_index(1) = i;
-      clearance_map.getPosition(target_index, position);
-      float value = clearance_map.atPosition(layer_name, position)*clearance_to_m;
-      // std::cerr << "i " << i << "value "<< value<< std::endl;
-      if(value < 0.001)
-      {
-        // std::cerr << "righy bound " << position(1) << std::endl;
-        lower_bound_vec.push_back(position(1));
-        break;
-      }
-    }
-    
-    lateral_reference_point_vec.push_back(sum_y);
-    // std::cerr << "sum y " << sum_y << std::endl;
-    longitudinal_reference_point_vec.push_back(sum_x);
-    
-    geometry_msgs::Pose pose_in_lidar_tf;
-    pose_in_lidar_tf.position.x = sum_x;
-    pose_in_lidar_tf.position.y = sum_y;
-    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-    pose_in_lidar_tf.orientation.w = 1.0;
-    geometry_msgs::Pose pose_in_map_tf;
-    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-    autoware_msgs::Waypoint waypoint;
-    waypoint.pose.pose = pose_in_map_tf;
-    modified_reference_path.push_back(waypoint); 
-  }
-  
   // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end_bspline = std::chrono::high_resolution_clock::now();
+  std::chrono::high_resolution_clock::time_point end_spline = std::chrono::high_resolution_clock::now();
   // 経過時間を取得
-  std::chrono::nanoseconds bspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_bspline - begin_bspline);
-  std::cout <<"bspline interpolation " <<bspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-  
-  
-  // std::cerr << "num low vec " << lower_bound_vec.size() << std::endl;
-  // std::cerr << "num up vec " << upper_bound_vec.size() << std::endl;
-  
-  // qpOASES::SQProblem solver(number_of_sampling_points, 1);
-  qpOASES::QProblemB solver(number_of_sampling_points);
-  
-  solver.setPrintLevel(qpOASES::PL_NONE);
-  double h_matrix[number_of_sampling_points*number_of_sampling_points];
-  double g_matrix[number_of_sampling_points];
-  // double a_constraint_matrix[number_of_sampling_points*number_of_sampling_points];
-  double lower_bound[number_of_sampling_points];
-  double upper_bound[number_of_sampling_points];
-  double constrain[number_of_sampling_points];
-  Eigen::MatrixXd a_constraint = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
-  
-  
-  Eigen::MatrixXd tmp_a1 = Eigen::MatrixXd::Identity(number_of_sampling_points, number_of_sampling_points);
-  Eigen::MatrixXd tmp_a2(number_of_sampling_points, number_of_sampling_points);
-  Eigen::MatrixXd tmp_a3(number_of_sampling_points, number_of_sampling_points);
-  // Eigen::MatrixXd tmp_a_constrain(number_of_sampling_points,number_of_sampling_points);
-  Eigen::VectorXd tmp_b1(number_of_sampling_points);
-  Eigen::VectorXd tmp_b2(number_of_sampling_points);
-  Eigen::VectorXd tmp_b3(number_of_sampling_points);
-  for (int r = 0; r < number_of_sampling_points; ++r)
-  {
-    tmp_b1(r) = lateral_reference_point_vec[r];
-    tmp_b2(r) = 0;
-    tmp_b3(r) = 0;
-    for (int c = 0; c < number_of_sampling_points; ++c)
-    {
-      if(c==r && c != number_of_sampling_points-1)
-      {
-        tmp_a2(r, c) = 1;
-      }
-      else if(c - r == 1)
-      {
-        tmp_a2(r, c) = -1;
-      }
-      else
-      {
-        tmp_a2(r, c) = 0;
-      }
-      
-      if(r == number_of_sampling_points-1 || r == number_of_sampling_points - 2)
-      {
-        tmp_a3(r, c) = 0;
-      }
-      else if(c==r)
-      {
-        tmp_a3(r, c) = 1;
-      }
-      else if(c - r == 1)
-      {
-        tmp_a3(r, c) = -2;
-      }
-      else if(c - r == 2)
-      {
-        tmp_a3(r, c) = 1;
-      }
-      else
-      {
-        tmp_a3(r, c) = 0;
-      }    
-    }
-  }
-  
-  double w1 = 0.00001;
-  double w3 = 1.0;
-  // double w1 = 1.0;
-  // double w3 = 1.0;
-  Eigen::MatrixXd tmp_a = w1*tmp_a1.transpose()*tmp_a1 + 
-                          // tmp_a2.transpose()*tmp_a2 +
-                          w3*tmp_a3.transpose()*tmp_a3;
-  Eigen::MatrixXd tmp_b = -1*(w1*tmp_b1.transpose()*tmp_a1 +
-                              // tmp_b2.transpose()*tmp_a2 +
-                              w3*tmp_b3.transpose()*tmp_a3);
-  
-  // Eigen::MatrixXd tmp_a_constrain = 
-  //                         tmp_a2.transpose()*tmp_a2;
-  
-  
-  
-  int index = 0;
-
-  for (int r = 0; r < number_of_sampling_points; ++r)
-  {
-    for (int c = 0; c < number_of_sampling_points; ++c)
-    {
-      h_matrix[index] = tmp_a(r, c);
-      // h_matrix[index] = tmp_a_constrain(r, c);
-      // a_constraint_matrix[index] = a_constraint(r, c);
-      // a_constraint_matrix[index] = tmp_a_constrain(r, c);
-      index++;
-    }
-  }
-  
-  for (int i = 0; i < number_of_sampling_points; ++i)
-  {
-    lower_bound[i] = lower_bound_vec[i];
-    upper_bound[i] = upper_bound_vec[i];
-    // g_matrix[i] = -1*lateral_reference_point_vec[i];
-    g_matrix[i] = tmp_b(i);
-    // constrain[i] = lateral_reference_point_vec[i];
-    // constrain[i] = 0;
-    // std::cerr << "constrain " << constrain[i] << std::endl;
-  }
-  
-  lower_bound[38] = 1;
-  lower_bound[39] = 1;
-  lower_bound[40] = 1;
-  lower_bound[41] = 1;
-  lower_bound[42] = 1;
-  lower_bound[43] = 1;
-  upper_bound[38] = 3;
-  upper_bound[39] = 3;
-  upper_bound[40] = 3;
-  upper_bound[41] = 3;
-  upper_bound[42] = 3;
-  upper_bound[43] = 3;
-  
-  int max_iter = 500;
-  
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
-    
-  auto ret = solver.init(h_matrix, g_matrix, 
-                         lower_bound, upper_bound, 
-                         max_iter); 
-  double result[number_of_sampling_points];
-  solver.getPrimalSolution(result);
-  
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-  std::cout <<"qp path generation " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-  for(size_t i = 1; i < number_of_sampling_points; i++)
-  {
-    // if(i < number_of_sampling_points - 2)
-    // {
-    //   std::cerr << "pre diff " << result[i] - result[i-1]<< std::endl;
-    //   std::cerr << "post diff " << result[i] - result[i+1] << std::endl;
-    // }
-    // std::cerr << "result " << result[i] << std::endl;
-    geometry_msgs::Pose pose_in_lidar_tf;
-    pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
-    pose_in_lidar_tf.position.y = result[i];
-    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-    pose_in_lidar_tf.orientation.w = 1.0;
-    geometry_msgs::Pose pose_in_map_tf;
-    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-    autoware_msgs::Waypoint waypoint;
-    waypoint.pose.pose = pose_in_map_tf;
-    debug_qp_path.push_back(waypoint); 
-  }
-  
-  for(size_t i = 38; i < 39+6; i++)
-  {
-    for(size_t j = 0; j < 10; j++)
-    {
-      geometry_msgs::Pose pose_in_lidar_tf;
-      pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
-      pose_in_lidar_tf.position.y = 1 - 1. - j*0.5;
-      pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-      pose_in_lidar_tf.orientation.w = 1.0;
-      geometry_msgs::Pose pose_in_map_tf;
-      tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-      autoware_msgs::Waypoint waypoint;
-      waypoint.pose.pose = pose_in_map_tf;
-      debug_collision_point.push_back(waypoint); 
-    }
-  }
-  
-  // std::cerr << "num cont " << solver.getNAC() << std::endl;
-  // printf( "\nobjVal = %e\n\n",
-  //         solver.getObjVal() );
-
-  // solver.printOptions();
-  // solver.printProperties();
+  std::chrono::nanoseconds cspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_spline - begin_spline);
+  std::cout <<"cubic spline interpolation " <<cspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   return true;
 }

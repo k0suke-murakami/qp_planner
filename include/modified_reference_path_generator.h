@@ -83,8 +83,7 @@ public:
       std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,      
       std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_lidar,      
       std::vector<autoware_msgs::Waypoint>& debug_qp_path,      
-      std::vector<autoware_msgs::Waypoint>& debug_collision_point,      
-      sensor_msgs::PointCloud2& debug_pointcloud_clearance_map);
+      std::vector<autoware_msgs::Waypoint>& debug_collision_point);
 };
 
 

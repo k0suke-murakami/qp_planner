@@ -251,7 +251,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     // got_modified_reference_path_ = false;
     if(!got_modified_reference_path_)
     {
-      sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
       //TODO: make it better by using time-series data
       //make local waypoints based on current_pose
       std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
@@ -308,8 +307,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
             debug_modified_smoothed_reference_path_,
             debug_modified_smoothed_reference_path_in_lidar_,
             debug_qp_path_,
-            debug_collision_point_,
-            debug_clearance_map_pointcloud);
+            debug_collision_point_);
       if(!got_modified_reference_path_)
       { 
         std::cerr << "Could not get global modified path" << std::endl;
@@ -322,8 +320,8 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
         std::cerr << "modified size " << modified_reference_path_.size() << std::endl;
       }
       
-      debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
-      gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
+      // debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
+      // gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
     }
      
     // 3. 現在日時を再度取得
