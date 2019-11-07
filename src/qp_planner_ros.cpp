@@ -319,9 +319,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
         got_modified_reference_path_ = false;
         std::cerr << "modified size " << modified_reference_path_.size() << std::endl;
       }
-      
-      // debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
-      // gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
     }
      
     // 3. 現在日時を再度取得
@@ -338,89 +335,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
                             debug_modified_smoothed_reference_path_in_lidar_,
                             out_waypoints);
     std::cerr << "--------------" << std::endl;
-    // center_line_points_
-    // = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
-    //   modified_reference_path_);
-    
-    // autoware_msgs::Lane out_trajectory;
-    // std::vector<autoware_msgs::Lane> out_debug_trajectories;
-    // std::vector<geometry_msgs::Point> out_target_points;
-    // if(!only_testing_modified_global_path_)
-    // {
-    //   std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
-    //   double min_dist = 99999;
-    //   size_t closest_wp_index = 0;
-    //   for (size_t i = 0; i < modified_reference_path_.size(); i++)
-    //   {
-    //     double dx = modified_reference_path_[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-    //     double dy = modified_reference_path_[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-    //     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-    //     if(distance < min_dist)
-    //     {
-    //       min_dist = distance;
-    //       closest_wp_index = i;
-    //     }
-    //   }
-    //   //TODO: think better way
-    //   for(size_t i = closest_wp_index; i< modified_reference_path_.size(); i++)
-    //   {
-    //     local_reference_waypoints.push_back(modified_reference_path_[i]);
-    //   }
-      
-    //   std::vector<Point> local_center_points;
-    //   double min_dist2 = 99999;
-    //   size_t closest_point_index = 0;
-    //   for (size_t i = 0; i < center_line_points_.size(); i++)
-    //   {
-    //     double dx = center_line_points_[i].tx - in_pose_ptr_->pose.position.x;
-    //     double dy = center_line_points_[i].ty - in_pose_ptr_->pose.position.y;
-    //     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-    //     if(distance < min_dist)
-    //     {
-    //       min_dist2 = distance;
-    //       closest_point_index = i;
-    //     }
-    //   }
-    //   //TODO: think better way
-    //   for(size_t i = closest_point_index; i< center_line_points_.size(); i++)
-    //   {
-    //     local_center_points.push_back(center_line_points_[i]);
-    //   }
-      
-      
-    //   // // TODO: somehow improve interface
-    //   qp_planner_ptr_->doPlan(*in_pose_ptr_, 
-    //                               *in_twist_ptr_, 
-    //                               local_center_points, 
-    //                               local_reference_waypoints,
-    //                               in_objects_ptr_,
-    //                               out_trajectory,
-    //                               out_debug_trajectories,
-    //                               out_target_points);
-    //   std::cerr << "------"  << std::endl;
-    //   // for(auto& trajectory: out_trajectory.waypoints)
-    //   // {
-    //   //   std::cerr << "trajectory " << trajectory.pose.pose.position.x << std::endl;
-    //   //   std::cerr << "trajectory " << trajectory.pose.pose.position.y << std::endl;
-    //   //   // std::cerr << "trajector twist " << trajectory.twist.twist.linear.x << std::endl;
-    //   //   // trajectory.twist.twist.linear.x = 1.38;
-    //   // }
-    //   //3. 現在日時を再度取得
-    //   std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
-
-    //   // 経過時間を取得
-    //   std::chrono::nanoseconds elapsed_time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(path_end - distance_end);
-    //   std::cout << "path generation "<<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-    //   // std::cerr << "output num wps" << out_trajectory.waypoints.size() << std::endl;
-    //   std::cerr << "------------"  << std::endl;
-      
-    //   autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
-    //   dummy_lane.waypoints = local_reference_waypoints;
-    //   dummy_lane.waypoints = out_trajectory.waypoints;
-    //   optimized_waypoints_pub_.publish(dummy_lane);
-    // }
-    // // optimized_waypoints_pub_.publish(out_trajectory);
-    
     
     
     //debug; marker array
@@ -793,10 +707,3 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     markers_pub_.publish(points_marker_array);
   }
 }
-
-// void QPPlannerROS::loadVectormap()
-// {
-//   vectormap_load_ptr_->load();
-// }
-
-// // TODO: make_
