@@ -252,42 +252,38 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::GridMap grid_map;
     grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
     
-    // //calculate s between nearest reference path point and first reference path point
-    // if(modified_reference_path_ptr_)
-    // {
-    //   geometry_msgs::Pose ego_pose_in_gridmap_frame;
-    //   tf2::doTransform(in_pose_ptr_->pose, ego_pose_in_gridmap_frame, *map2gridmap_tf_);
-
-      
-    //   double min_dist = 999999;
-    //   geometry_msgs::Point first_reference_point = modified_reference_path_ptr_->front().pose.pose.position;
-    //   double accumulated_distance = 0;
-    //   double accumulated_distance_till_nearest_point = 0;
-    //   double past_px = modified_reference_path_ptr_->front().pose.pose.position.x;
-    //   double past_py = modified_reference_path_ptr_->front().pose.pose.position.y;
-    //   for(size_t i = 0; i < modified_reference_path_ptr_->size(); i++)
-    //   {
-    //     double px = modified_reference_path_ptr_->at(i).pose.pose.position.x;
-    //     double py = modified_reference_path_ptr_->at(i).pose.pose.position.y;
-    //     accumulated_distance += std::sqrt(std::pow(px-past_px,2)+std::pow(py-past_py,2));
-    //     past_px = px;
-    //     past_py = py;
-    //     double ex = ego_pose_in_gridmap_frame.position.x;
-    //     double ey = ego_pose_in_gridmap_frame.position.y;
-    //     double distance = std::sqrt(std::pow(px-ex, 2)+ std::pow(py-ey, 2));
-    //     // std::cerr << "acccumulate " << accumulated_distance << std::endl;
-    //     // std::cerr << "distance " << distance << std::endl;
-    //     if(distance < min_dist)
-    //     {
-    //       min_dist = distance;
-    //       accumulated_distance_till_nearest_point = accumulated_distance;
-    //     }
-    //   }
-    //   // std::cerr << "accumulated distance till " << 
-    //   //               accumulated_distance_till_nearest_point<< std::endl;
-    //   // std::cerr << "min_dist " << 
-    //   //               min_dist<< std::endl;
-    // }
+    //calculate s between nearest reference path point and first reference path point
+    if(modified_reference_path_ptr_)
+    {
+      double min_dist = 999999;
+      geometry_msgs::Point first_reference_point = modified_reference_path_ptr_->front().pose.pose.position;
+      double accumulated_distance = 0;
+      double accumulated_distance_till_nearest_point = 0;
+      double past_px = modified_reference_path_ptr_->front().pose.pose.position.x;
+      double past_py = modified_reference_path_ptr_->front().pose.pose.position.y;
+      for(size_t i = 0; i < modified_reference_path_ptr_->size(); i++)
+      {
+        double px = modified_reference_path_ptr_->at(i).pose.pose.position.x;
+        double py = modified_reference_path_ptr_->at(i).pose.pose.position.y;
+        accumulated_distance += std::sqrt(std::pow(px-past_px,2)+std::pow(py-past_py,2));
+        past_px = px;
+        past_py = py;
+        double ex = in_pose_ptr_->pose.position.x;
+        double ey = in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(px-ex, 2)+ std::pow(py-ey, 2));
+        // std::cerr << "acccumulate " << accumulated_distance << std::endl;
+        // std::cerr << "distance " << distance << std::endl;
+        if(distance < min_dist)
+        {
+          min_dist = distance;
+          accumulated_distance_till_nearest_point = accumulated_distance;
+        }
+      }
+      std::cerr << "accumulated distance till nearest " << 
+                    accumulated_distance_till_nearest_point<< std::endl;
+      std::cerr << "min_dist " << 
+                    min_dist<< std::endl;
+    }
     
     if(!got_modified_reference_path_)
     {    
