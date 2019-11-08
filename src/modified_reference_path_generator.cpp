@@ -451,7 +451,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   grid_map::Matrix grid_data = clearance_map.get(layer_name);
 
   // grid_length y and grid_length_x respectively
-  dope::Index2 size({ 200, 600 });
+  dope::Index2 size({ static_cast<unsigned>(clearance_map.getLength()[1]*10),
+                      static_cast<unsigned>(clearance_map.getLength()[0]*10) });
+  // dope::Index2 size({ 200, 600 });
   dope::Grid<float, 2> f(size);
   dope::Grid<dope::SizeType, 2> indices(size);
   bool is_empty_cost = true;
