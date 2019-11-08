@@ -161,20 +161,20 @@ void QPPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
 { 
   if(in_waypoints_ptr_)
   {
-    geometry_msgs::TransformStamped lidar2map_tf;
-    geometry_msgs::TransformStamped map2lidar_tf;
+    geometry_msgs::TransformStamped gridmap2map_tf;
+    geometry_msgs::TransformStamped map2gridmap_tf;
     try
     {
-        lidar2map_tf = tf2_buffer_ptr_->lookupTransform(
+        gridmap2map_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  in_waypoints_ptr_->header.frame_id, 
           /*src*/ msg.info.header.frame_id,
           ros::Time(0));
-        lidar2map_tf_.reset(new geometry_msgs::TransformStamped(lidar2map_tf));
-        map2lidar_tf = tf2_buffer_ptr_->lookupTransform(
+        gridmap2map_tf_.reset(new geometry_msgs::TransformStamped(gridmap2map_tf));
+        map2gridmap_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  msg.info.header.frame_id, 
           /*src*/ in_waypoints_ptr_->header.frame_id,
           ros::Time(0));
-        map2lidar_tf_.reset(new geometry_msgs::TransformStamped(map2lidar_tf));
+        map2gridmap_tf_.reset(new geometry_msgs::TransformStamped(map2gridmap_tf));
     }
     catch (tf2::TransformException &ex)
     {
@@ -275,6 +275,11 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       geometry_msgs::Point goal_point = in_waypoints_ptr_->waypoints[closest_goal_wp_index].pose.pose.position;
       geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
       
+      geometry_msgs::Point goal_point_in_gridmap_frame;
+      geometry_msgs::Point start_point_in_gridmap_frame;
+      tf2::doTransform(goal_point, goal_point_in_gridmap_frame, *map2gridmap_tf_);
+      tf2::doTransform(start_point, start_point_in_gridmap_frame, *map2gridmap_tf_);
+      
       
       if(only_testing_modified_global_path_)
       {
@@ -285,8 +290,8 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
             grid_map,
             start_point,
             goal_point,
-            *lidar2map_tf_,
-            *map2lidar_tf_,
+            *gridmap2map_tf_,
+            *map2gridmap_tf_,
             modified_reference_path_,
             debug_modified_smoothed_reference_path_,
             debug_modified_smoothed_reference_path_in_lidar_,
@@ -315,7 +320,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     
     
     std::vector<autoware_msgs::Waypoint> out_waypoints;
-    qp_planner_ptr_->doPlan(*lidar2map_tf_,
+    qp_planner_ptr_->doPlan(*gridmap2map_tf_,
                             *in_pose_ptr_,
                             grid_map,
                             debug_modified_smoothed_reference_path_in_lidar_,
