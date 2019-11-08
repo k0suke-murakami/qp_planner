@@ -52,60 +52,10 @@ QPPlannerROS::QPPlannerROS()
   has_calculated_center_line_from_global_waypoints_(false),
   got_modified_reference_path_(false)
 {
-  double timer_callback_delta_second;
-  private_nh_.param<double>("timer_callback_delta_second", 
-     timer_callback_delta_second, 0.1);
-  
-  // double initial_velocity_kmh;
-  // double velcity_kmh_before_obstalcle;
-  // double distance_before_obstalcle;
-  // double obstacle_radius_from_center_point;
-  // double min_lateral_referencing_offset_for_avoidance;
-  // double max_lateral_referencing_offset_for_avoidance;
-  // double diff_waypoints_cost_coef;
-  // double diff_last_waypoint_cost_coef;
-  // double jerk_cost_coef;
-  // double required_time_cost_coef;
-  // double comfort_acceleration_cost_coef;
-  // double lookahead_distance_per_kmh_for_reference_point;
-  // double converge_distance_per_kmh_for_stop;
-  // double linear_velocity_kmh;
-  
-  double min_radius;
-  
-  // private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
-  // private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
-  // private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
-  // private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 4.0);
-  // private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
-  // private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
-  // private_nh_.param<double>("diff_waypoints_cost_coef", diff_waypoints_cost_coef, 0.0);
-  // private_nh_.param<double>("diff_last_waypoint_cost_coef", diff_last_waypoint_cost_coef, 1.0);
-  // private_nh_.param<double>("jerk_cost_coef", jerk_cost_coef, 0.25);
-  // private_nh_.param<double>("required_time_cost_coef", required_time_cost_coef, 1.0);
-  // private_nh_.param<double>("comfort_acceleration_cost_coef", comfort_acceleration_cost_coef, 0.0);
-  // private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
-  // private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
-  // private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
-  // private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
+  double min_radius; 
+  private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
   private_nh_.param<double>("min_radius", min_radius, 1.6);
-  // const double kmh2ms = 0.2778;
-  // const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
-  // const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
-  // double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
-  // double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
-  // double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
   qp_planner_ptr_.reset(new QPPlanner());
-  // TODO: assume that vectormap is already published when constructing QPPlannerROS
-  // if(!use_global_waypoints_as_center_line_)
-  // {
-  //   vectormap_load_ptr_.reset(new VectorMap());
-  //   loadVectormap();
-  // }
-  // else
-  // {
-  //   calculate_center_line_ptr_.reset(new CalculateCenterLine());
-  // }
   modified_reference_path_generator_ptr_.reset(
     new ModifiedReferencePathGenerator(
       min_radius));
@@ -114,7 +64,7 @@ QPPlannerROS::QPPlannerROS()
   tf2_listner_ptr_.reset(new tf2_ros::TransformListener(*tf2_buffer_ptr_));
   
   
-  optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("safety_waypoints", 1, true);
+  safety_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("safety_waypoints", 1, true);
   markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("qp_planner_debug_markes", 1, true);
   gridmap_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("gridmap_pointcloud", 1, true);
   final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &QPPlannerROS::waypointsCallback, this);
@@ -123,7 +73,7 @@ QPPlannerROS::QPPlannerROS()
   objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &QPPlannerROS::objectsCallback, this);
   grid_map_sub_ = nh_.subscribe("/semantics/costmap", 1, &QPPlannerROS::gridmapCallback, this);
   // double timer_callback_dt = 0.05;
-  // double timer_callback_dt = 0.1;
+  double timer_callback_delta_second = 0.1;
   // double timer_callback_dt = 1.0;
   // double timer_callback_dt = 0.5;
   timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &QPPlannerROS::timerCallback, this);
@@ -136,7 +86,65 @@ QPPlannerROS::~QPPlannerROS()
 
 void QPPlannerROS::waypointsCallback(const autoware_msgs::Lane& msg)
 {
-  in_waypoints_ptr_.reset(new autoware_msgs::Lane(msg));
+  if(in_pose_ptr_)
+  {
+    if(!in_waypoints_ptr_)
+    {
+      size_t nearest_wp_index;
+      double min_dist = 9999999;
+      //find nearest 
+      for(size_t i = 0; i < msg.waypoints.size(); i++)
+      {
+        double px = msg.waypoints[i].pose.pose.position.x;
+        double py = msg.waypoints[i].pose.pose.position.y;
+        double ex = in_pose_ptr_->pose.position.x;
+        double ey = in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(px-ex,2)+std::pow(py-ey, 2));
+        if(distance < min_dist)
+        {
+          min_dist = distance;
+          nearest_wp_index = i;
+        }
+      }
+      
+      autoware_msgs::Lane tmp_lane;
+      tmp_lane.header = msg.header;
+      for (size_t i = nearest_wp_index; i < msg.waypoints.size(); i++)
+      {
+        tmp_lane.waypoints.push_back(msg.waypoints[i]);
+      }
+      in_waypoints_ptr_.reset(new autoware_msgs::Lane(tmp_lane));
+      previous_nearest_wp_index_.reset(new size_t(nearest_wp_index));
+    }
+    else
+    {
+      size_t nearest_wp_index;
+      double min_dist = 9999999;
+      for(size_t i = *previous_nearest_wp_index_; 
+                 i < *previous_nearest_wp_index_ +20;
+                 i++)
+      {
+        double px = msg.waypoints[i].pose.pose.position.x;
+        double py = msg.waypoints[i].pose.pose.position.y;
+        double ex = in_pose_ptr_->pose.position.x;
+        double ey = in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(px-ex,2)+std::pow(py-ey, 2));
+        if(distance < min_dist)
+        {
+          min_dist = distance;
+          nearest_wp_index = i;
+        }
+        autoware_msgs::Lane tmp_lane;
+        tmp_lane.header = msg.header;
+        for (size_t i = nearest_wp_index; i < msg.waypoints.size(); i++)
+        {
+          tmp_lane.waypoints.push_back(msg.waypoints[i]);
+        }
+        in_waypoints_ptr_.reset(new autoware_msgs::Lane(tmp_lane));
+        previous_nearest_wp_index_.reset(new size_t(nearest_wp_index));
+      }
+    }
+  }
 }
 
 void QPPlannerROS::currentPoseCallback(const geometry_msgs::PoseStamped & msg)
@@ -183,7 +191,6 @@ void QPPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg
   {
     if(msg.objects.size() == 0)
     {
-      std::cerr << "ssize of objects is 0" << std::endl;
       return;
     }
     geometry_msgs::TransformStamped lidar2map_tf;
@@ -321,6 +328,8 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       }
     }
      
+    safety_waypoints_pub_.publish(*in_waypoints_ptr_);    
+    return;
     // 3. 現在日時を再度取得
     std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
     // 経過時間を取得
@@ -336,6 +345,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
                             out_waypoints);
     std::cerr << "--------------" << std::endl;
     
+    safety_waypoints_pub_.publish(*in_waypoints_ptr_);    
     
     //debug; marker array
     visualization_msgs::MarkerArray points_marker_array;
@@ -705,5 +715,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     // }
     
     markers_pub_.publish(points_marker_array);
+    // safety_waypoints_pub_.publish(*in_waypoints_ptr_);
   }
 }

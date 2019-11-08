@@ -65,7 +65,7 @@ public:
 private:
   // ros
   ros::NodeHandle nh_, private_nh_;
-  ros::Publisher optimized_waypoints_pub_;
+  ros::Publisher safety_waypoints_pub_;
   ros::Publisher markers_pub_;
   ros::Publisher gridmap_pointcloud_pub_;
   ros::Subscriber current_pose_sub_;
@@ -101,6 +101,7 @@ private:
   
   
   std::unique_ptr<autoware_msgs::Lane> in_waypoints_ptr_;
+  std::unique_ptr<size_t> previous_nearest_wp_index_;
   std::unique_ptr<geometry_msgs::PoseStamped> in_pose_ptr_;
   std::unique_ptr<geometry_msgs::TwistStamped> in_twist_ptr_;
   std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
