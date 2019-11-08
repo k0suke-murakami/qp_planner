@@ -440,10 +440,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::Point& goal_point,
     const geometry_msgs::TransformStamped& lidar2map_tf, 
     const geometry_msgs::TransformStamped& map2lidar_tf,
-    std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_in_lidar,
-    std::vector<autoware_msgs::Waypoint>& debug_qp_path,
     std::vector<autoware_msgs::Waypoint>& debug_collision_point)
 {
   
@@ -626,50 +624,22 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   //backtrack
   Node current_node = s_closed.back();
-  if(calculate2DDistace(current_node.p, goal_p)>5)
+  double dist = calculate2DDistace(current_node.p, goal_p);
+  if(dist > 5)
   {
-    std::cerr << "Error: could not fing modified global path; "  << std::endl;
+    std::cerr << "Error: fail to find goal by graph A*; "<< dist  <<" away from goal" << std::endl;
     return false;
   }
   while(current_node.parent_node != nullptr)
   {
-    // geometry_msgs::Pose pose_in_lidar_tf;
-    // pose_in_lidar_tf.position.x = current_node.p(0);
-    // pose_in_lidar_tf.position.y = current_node.p(1);
-    // pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-    // pose_in_lidar_tf.orientation.w = 1.0;
-    // geometry_msgs::Pose pose_in_map_tf;
-    // tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-    // autoware_msgs::Waypoint waypoint;
-    // waypoint.pose.pose = pose_in_map_tf;
-    // modified_reference_path.push_back(waypoint);
-    
     PathPoint path_point;
     path_point.position = current_node.p;
     path_point.clearance = current_node.r;
     path_point.curvature = 0;
     // path_points.push_back(path_point);
     path_points.insert(path_points.begin() + 1, path_point);
-    
     current_node = *current_node.parent_node;
-    
   }
-  
-  // for(const auto& point: path_points)
-  // {
-  //   std::cerr << "raugh node position " << point.position(0)<< " "<<point.position(1) << std::endl;
-  // }
-  // for(const auto& point: path_points)
-  // {
-  //   double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
-  //                                             point.position)*0.1;
-  //     std::cerr << "clearance " << rs << std::endl;
-  // }
-  
-  // autoware_msgs::Waypoint goal_waypoint;
-  // goal_waypoint.pose.pose.position = goal_point;
-  // goal_waypoint.pose.pose.orientation.w = 1.0;
-  // modified_reference_path.push_back(goal_waypoint);
   
   PathPoint goal_path_point;
   goal_path_point.position = goal_p;
