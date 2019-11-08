@@ -257,37 +257,14 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     // std::vector<autoware_msgs::Waypoint> debug_qp_path;
     // got_modified_reference_path_ = false;
     if(!got_modified_reference_path_)
-    {
-      //TODO: make it better by using time-series data
-      //make local waypoints based on current_pose
-      std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
-      double min_dist = 99999;
-      size_t closest_wp_index = 0;
+    {    
+      double min_dist_from_goal = 99999;
+      const double search_distance = 45;
+      size_t closest_goal_wp_index = 0;
       for (size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
       {
         double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
         double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-        double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-        if(distance < min_dist)
-        {
-          min_dist = distance;
-          closest_wp_index = i;
-        }
-      }
-      //TODO: think better way
-      for(size_t i = closest_wp_index; i< in_waypoints_ptr_->waypoints.size(); i++)
-      {
-        local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
-      }
-      
-      
-      double min_dist_from_goal = 99999;
-      const double search_distance = 45;
-      size_t closest_goal_wp_index = 0;
-      for (size_t i = 0; i < local_reference_waypoints.size(); i++)
-      {
-        double dx = local_reference_waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-        double dy = local_reference_waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
         double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
         if(distance < min_dist_from_goal && distance > search_distance)
         {
@@ -295,7 +272,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
           closest_goal_wp_index = i;
         }
       }
-      geometry_msgs::Point goal_point = local_reference_waypoints[closest_goal_wp_index].pose.pose.position;
+      geometry_msgs::Point goal_point = in_waypoints_ptr_->waypoints[closest_goal_wp_index].pose.pose.position;
       geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
       
       
