@@ -441,10 +441,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::TransformStamped& lidar2map_tf, 
     const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
-    std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_in_lidar,
-    std::vector<autoware_msgs::Waypoint>& debug_collision_point)
+    std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_in_lidar)
 {
   
+  // 1. 現在日時を取得
+  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix grid_data = clearance_map.get(layer_name);
 
@@ -475,18 +476,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   // Note: this is necessary at least at the first distance transform execution
   // and every time a reset is desired; it is not, instead, when updating
   dt::DistanceTransform::initializeIndices(indices);
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
   
   dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
   
 
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
-  std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   for (dope::SizeType i = 0; i < size[0]; ++i)
   {
     for (dope::SizeType j = 0; j < size[1]; ++j)
@@ -501,6 +495,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       }
     }
   }
+  // 3. 現在日時を再度取得
+  std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
+  // 経過時間を取得
+  std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
+  std::cout <<"only distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   // 1. 現在日時を取得
   std::chrono::high_resolution_clock::time_point begin_a_star_plus_rule_smooth = std::chrono::high_resolution_clock::now();
@@ -641,26 +640,26 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     current_node = *current_node.parent_node;
   }
   
-  PathPoint goal_path_point;
-  goal_path_point.position = goal_p;
-  try 
-  {
-    double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
-                                            goal_p)*0.1;
-    double r = std::min(tmp_r, max_r);
-    if(r < min_radius_)
-    {
-      r = min_radius_;
-    }
-    goal_path_point.clearance = r;
-  }
-  catch (const std::out_of_range& e) 
-  {
-    std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
-  }
-  goal_path_point.curvature = 0;
-  path_points.push_back(goal_path_point);
-  
+  // PathPoint goal_path_point;
+  // goal_path_point.position = goal_p;
+  // try 
+  // {
+  //   double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
+  //                                           goal_p)*0.1;
+  //   double r = std::min(tmp_r, max_r);
+  //   if(r < min_radius_)
+  //   {
+  //     r = min_radius_;
+  //   }
+  //   goal_path_point.clearance = r;
+  // }
+  // catch (const std::out_of_range& e) 
+  // {
+  //   std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
+  // }
+  // goal_path_point.curvature = 0;
+  // path_points.push_back(goal_path_point);
+  std::cerr << "size of path points " << path_points.size() << std::endl;
   
   //smoothing
   calculateCurvatureForPathPoints(path_points);
@@ -675,7 +674,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     
     if(refined_path.size() < 3)
     {
-      std::cerr << "ERROR:somethign wrong"  << std::endl;
+      std::cerr << "skip smoothing since size of path points is less than 3"  << std::endl;
+      break;
     }
     std::vector<PathPoint> new_refined_path;
     new_refined_path.push_back(refined_path.front());
@@ -771,29 +771,29 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
        end_a_star_plus_rule_smooth - begin_a_star_plus_rule_smooth);
   std::cout <<"a star + rule smooth " <<chunk_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin_spline = std::chrono::high_resolution_clock::now();
+  // // 1. 現在日時を取得
+  // std::chrono::high_resolution_clock::time_point begin_spline = std::chrono::high_resolution_clock::now();
     
-  ReferencePath reference_path(tmp_x, tmp_y, 0.2);
-  int number_of_sampling_points = 200;
-  debug_modified_smoothed_reference_path.clear();
-  for(size_t i = 0;i < number_of_sampling_points; i++)
-  {
-    geometry_msgs::Pose pose_in_lidar_tf;
-    pose_in_lidar_tf.position.x = reference_path.x_[i];
-    pose_in_lidar_tf.position.y = reference_path.y_[i];
-    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-    pose_in_lidar_tf.orientation.w = 1.0;
-    geometry_msgs::Pose pose_in_map_tf;
-    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-    autoware_msgs::Waypoint waypoint;
-    waypoint.pose.pose = pose_in_map_tf;
-    debug_modified_smoothed_reference_path.push_back(waypoint);   
-  }
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end_spline = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds cspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_spline - begin_spline);
-  std::cout <<"cubic spline interpolation " <<cspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  // ReferencePath reference_path(tmp_x, tmp_y, 0.2);
+  // int number_of_sampling_points = 200;
+  // debug_modified_smoothed_reference_path.clear();
+  // for(size_t i = 0;i < number_of_sampling_points; i++)
+  // {
+  //   geometry_msgs::Pose pose_in_lidar_tf;
+  //   pose_in_lidar_tf.position.x = reference_path.x_[i];
+  //   pose_in_lidar_tf.position.y = reference_path.y_[i];
+  //   pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+  //   pose_in_lidar_tf.orientation.w = 1.0;
+  //   geometry_msgs::Pose pose_in_map_tf;
+  //   tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+  //   autoware_msgs::Waypoint waypoint;
+  //   waypoint.pose.pose = pose_in_map_tf;
+  //   debug_modified_smoothed_reference_path.push_back(waypoint);   
+  // }
+  // // 3. 現在日時を再度取得
+  // std::chrono::high_resolution_clock::time_point end_spline = std::chrono::high_resolution_clock::now();
+  // // 経過時間を取得
+  // std::chrono::nanoseconds cspline_elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_spline - begin_spline);
+  // std::cout <<"cubic spline interpolation " <<cspline_elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   return true;
 }

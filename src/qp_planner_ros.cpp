@@ -311,6 +311,8 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     //TODO: get all layers submap; it is not efficient 
     grid_map::GridMap submap =  grid_map.getSubmap(center_p, length, is_success);
     
+    
+    //debug; visualization
     nav_msgs::OccupancyGrid out_occupancy_grid;
     grid_map::GridMapRosConverter::toOccupancyGrid(submap, 
                                                   submap.getLayers().back(),
@@ -319,6 +321,21 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
                                                   out_occupancy_grid);
     out_occupancy_grid.header = in_gridmap_ptr_->info.header;
     gridmap_nav_pub_.publish(out_occupancy_grid);
+    //debug end
+    
+    std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
+    bool got_modified_incremental_reference_path =  
+      modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+          submap,
+          point1,
+          point2,
+          *gridmap2map_tf_,
+          *map2gridmap_tf_,
+          modified_reference_path,
+          modified_reference_path_in_gridmap);
+    std::cerr << "size of incremental path " << modified_reference_path.size() << std::endl;
+    
     
     // 3. 現在日時を再度取得
     std::chrono::high_resolution_clock::time_point end_incremental = 
@@ -370,10 +387,11 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
             *gridmap2map_tf_,
             *map2gridmap_tf_,
             modified_reference_path,
-            modified_reference_path_in_gridmap,
-            debug_collision_point_);
-      modified_reference_path_ptr_.reset(new std::vector<autoware_msgs::Waypoint>(modified_reference_path));
-      modified_reference_path_in_gridmap_ptr_.reset(new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
+            modified_reference_path_in_gridmap);
+      modified_reference_path_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path));
+      modified_reference_path_in_gridmap_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
       if(!got_modified_reference_path_)
       { 
         std::cerr << "Could not get global modified path" << std::endl;
@@ -407,7 +425,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     //debug; marker array
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
-    
     
     // visualize debug modified reference point
     visualization_msgs::Marker debug_modified_reference_points;
@@ -447,6 +464,28 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     debug_gridmap_point.points.push_back(point2);
     
     points_marker_array.markers.push_back(debug_gridmap_point);
+    unique_id++;
+    
+    // visualize gridmap point
+    visualization_msgs::Marker debug_incremental_path;
+    debug_incremental_path.lifetime = ros::Duration(0.2);
+    debug_incremental_path.header = in_pose_ptr_->header;
+    debug_incremental_path.ns = std::string("debug_incremental_path");
+    debug_incremental_path.action = visualization_msgs::Marker::MODIFY;
+    debug_incremental_path.pose.orientation.w = 1.0;
+    debug_incremental_path.id = unique_id;
+    debug_incremental_path.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_incremental_path.scale.x = 1.0f;
+    debug_incremental_path.color.r = 1.0f;
+    debug_incremental_path.color.g = 1.0f;
+    debug_incremental_path.color.a = 1;
+    
+    for(const auto& waypoint: modified_reference_path)
+    {
+      debug_incremental_path.points.push_back(waypoint.pose.pose.position);
+    }
+    
+    points_marker_array.markers.push_back(debug_incremental_path);
     unique_id++;
     
     

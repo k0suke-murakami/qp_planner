@@ -80,8 +80,7 @@ public:
       const geometry_msgs::TransformStamped& lidar2map_tf,
       const geometry_msgs::TransformStamped& map2lidar_tf,
       std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,      
-      std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_lidar,         
-      std::vector<autoware_msgs::Waypoint>& debug_collision_point);
+      std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path_lidar);
 };
 
 
