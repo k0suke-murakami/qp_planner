@@ -298,6 +298,37 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       // std::cerr << "min_dist " << 
       //               min_dist<< std::endl;
       
+      
+      geometry_msgs::Point first_reference_point =
+       incremental_reference_path_in_map_ptr_->front().pose.pose.position;
+      double min_dist = 99999;
+      size_t nearest_wp_index = 0;
+      for(size_t i=0; i< incremental_reference_path_in_map_ptr_->size(); i++)
+      {
+        double px = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.x;
+        double py = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.y;
+        double ex = in_pose_ptr_->pose.position.x;
+        double ey = in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(px-ex, 2)+ std::pow(py-ey, 2));
+        if(distance < min_dist)
+        {
+          min_dist = distance;
+          nearest_wp_index = i;
+        }
+      }
+      
+      std::vector<autoware_msgs::Waypoint> tmp_waypoints_in_map;
+      std::vector<autoware_msgs::Waypoint> tmp_waypoints_in_gridmap;
+      for(size_t i = nearest_wp_index; i < incremental_reference_path_in_map_ptr_->size(); i++)
+      {
+        tmp_waypoints_in_map.push_back(incremental_reference_path_in_map_ptr_->at(i));
+        tmp_waypoints_in_gridmap.push_back(incremental_reference_path_in_gridmap_ptr_->at(i));
+      }
+      incremental_reference_path_in_map_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(tmp_waypoints_in_map));
+      incremental_reference_path_in_gridmap_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(tmp_waypoints_in_gridmap));
+      
       geometry_msgs::Point past_p = 
         incremental_reference_path_in_map_ptr_->front().pose.pose.position;
       double accumulated_distance = 0;
