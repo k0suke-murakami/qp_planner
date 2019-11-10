@@ -85,6 +85,11 @@ std::vector<Node> expandNode(Node& parent_node,
   {
     current_r = parent_node.r;
   }
+  double distance_to_goal = calculate2DDistace(goal_node.p, parent_node.p);
+  if(distance_to_goal< current_r)
+  {
+    current_r = distance_to_goal;
+  }
   
   
   std::vector<Node> child_nodes;
@@ -119,6 +124,7 @@ std::vector<Node> expandNode(Node& parent_node,
       continue;
     }
     child_node.g = parent_node.g + current_r;
+    // child_node.g = parent_node.g + child_node.r;
     child_node.h = calculate2DDistace(child_node.p, goal_node.p);
     child_node.f = child_node.g + child_node.h;
     child_node.parent_node = std::make_shared<Node>(parent_node);
@@ -595,32 +601,6 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   std::vector<PathPoint> path_points;
   
-  // autoware_msgs::Waypoint start_waypoint;
-  // start_waypoint.pose.pose.position = start_point;
-  // start_waypoint.pose.pose.orientation.w = 1.0;
-  // modified_reference_path.push_back(start_waypoint);
-  PathPoint start_path_point;
-  start_path_point.position = start_p;
-  try 
-  {
-    double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
-                                            start_p)*0.1;
-    double r = std::min(tmp_r, max_r);
-    if(r < min_radius_)
-    {
-      r = min_radius_;
-      std::cerr << "start point's clearance is wrong "  << std::endl;
-    }
-    start_path_point.clearance = r;
-  }
-  catch (const std::out_of_range& e) 
-  {
-    std::cerr << "WARNING: could not find clearance for start point " << std::endl;
-  }
-  start_path_point.curvature = 0;
-  path_points.push_back(start_path_point);
-  // std::cerr << "start p " << start_path_point.position << std::endl;
-  
   //backtrack
   Node current_node = s_closed.back();
   double dist = calculate2DDistace(current_node.p, goal_p);
@@ -636,35 +616,17 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     return true;
   }
   
-  while(current_node.parent_node != nullptr)
+  do
   {
     PathPoint path_point;
     path_point.position = current_node.p;
     path_point.clearance = current_node.r;
     path_point.curvature = 0;
-    // path_points.push_back(path_point);
-    path_points.insert(path_points.begin() + 1, path_point);
+    path_points.insert(path_points.begin(), path_point);
     current_node = *current_node.parent_node;
-  }
+  }while(current_node.parent_node != nullptr);
   
-  // PathPoint goal_path_point;
-  // goal_path_point.position = goal_p;
-  // try 
-  // {
-  //   double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
-  //                                           goal_p)*0.1;
-  //   double r = std::min(tmp_r, max_r);
-  //   if(r < min_radius_)
-  //   {
-  //     r = min_radius_;
-  //   }
-  //   goal_path_point.clearance = r;
-  // }
-  // catch (const std::out_of_range& e) 
-  // {
-  //   std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
-  // }
-  // goal_path_point.curvature = 0;
+  
   // path_points.push_back(goal_path_point);
   std::cerr << "size of path points " << path_points.size() << std::endl;
   
@@ -676,7 +638,6 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   double new_j, prev_j;
   do
   {
-    // std::cerr << "------------" << std::endl;
     prev_j = calculateSmoothness(refined_path);
     
     if(refined_path.size() < 3)

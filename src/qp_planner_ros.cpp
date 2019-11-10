@@ -393,6 +393,23 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
               *map2gridmap_tf_,
               modified_reference_path_in_map,
               modified_reference_path_in_gridmap);
+        std::cerr << "start " << incremental_start_point.x << " "<<
+                                 incremental_start_point.y << std::endl;
+        std::cerr << "goal " << incremental_goal_point.x << " "<<
+                                 incremental_goal_point.y << std::endl;
+        if(got_modified_incremental_reference_path)
+        {
+          for(const auto& point: modified_reference_path_in_map)
+          {
+            std::cerr << "point " << point.pose.pose.position.x << " "
+                                  << point.pose.pose.position.y << std::endl;
+          }
+        }
+        else
+        {
+          std::cerr << "fails to find a path"  << std::endl;
+        }
+        
         incremental_reference_path_in_map_ptr_->insert(
           incremental_reference_path_in_map_ptr_->end(),
           modified_reference_path_in_map.begin(),
@@ -483,69 +500,69 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     
     
     
-    if(!got_modified_reference_path_)
-    {    
-      double min_dist_from_goal = 99999;
-      const double search_distance = 45;
-      size_t closest_goal_wp_index = 0;
-      for (size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
-      {
-        double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-        double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-        double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-        if(distance < min_dist_from_goal && distance > search_distance)
-        {
-          min_dist_from_goal = distance;
-          closest_goal_wp_index = i;
-        }
-      }
-      geometry_msgs::Point goal_point = in_waypoints_ptr_->waypoints[closest_goal_wp_index].pose.pose.position;
-      geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
+    // if(!got_modified_reference_path_)
+    // {    
+    //   double min_dist_from_goal = 99999;
+    //   const double search_distance = 45;
+    //   size_t closest_goal_wp_index = 0;
+    //   for (size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
+    //   {
+    //     double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+    //     double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
+    //     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+    //     if(distance < min_dist_from_goal && distance > search_distance)
+    //     {
+    //       min_dist_from_goal = distance;
+    //       closest_goal_wp_index = i;
+    //     }
+    //   }
+    //   geometry_msgs::Point goal_point = in_waypoints_ptr_->waypoints[closest_goal_wp_index].pose.pose.position;
+    //   geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
       
-      geometry_msgs::Point goal_point_in_gridmap_frame;
-      geometry_msgs::Point start_point_in_gridmap_frame;
-      tf2::doTransform(goal_point, goal_point_in_gridmap_frame, *map2gridmap_tf_);
-      tf2::doTransform(start_point, start_point_in_gridmap_frame, *map2gridmap_tf_);
+    //   geometry_msgs::Point goal_point_in_gridmap_frame;
+    //   geometry_msgs::Point start_point_in_gridmap_frame;
+    //   tf2::doTransform(goal_point, goal_point_in_gridmap_frame, *map2gridmap_tf_);
+    //   tf2::doTransform(start_point, start_point_in_gridmap_frame, *map2gridmap_tf_);
       
       
-      if(only_testing_modified_global_path_)
-      {
-        modified_reference_path_ptr_->clear();
-      }
-      std::vector<autoware_msgs::Waypoint> modified_reference_path;
-      std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
-      got_modified_reference_path_ =  
-        modified_reference_path_generator_ptr_->generateModifiedReferencePath(
-            grid_map,
-            start_point,
-            goal_point,
-            *gridmap2map_tf_,
-            *map2gridmap_tf_,
-            modified_reference_path,
-            modified_reference_path_in_gridmap);
-      modified_reference_path_ptr_.reset(
-        new std::vector<autoware_msgs::Waypoint>(modified_reference_path));
-      modified_reference_path_in_gridmap_ptr_.reset(
-        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
-      if(!got_modified_reference_path_)
-      { 
-        std::cerr << "Could not get global modified path" << std::endl;
-        return;
-      }
+    //   if(only_testing_modified_global_path_)
+    //   {
+    //     modified_reference_path_ptr_->clear();
+    //   }
+    //   std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    //   std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
+    //   got_modified_reference_path_ =  
+    //     modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+    //         grid_map,
+    //         start_point,
+    //         goal_point,
+    //         *gridmap2map_tf_,
+    //         *map2gridmap_tf_,
+    //         modified_reference_path,
+    //         modified_reference_path_in_gridmap);
+    //   modified_reference_path_ptr_.reset(
+    //     new std::vector<autoware_msgs::Waypoint>(modified_reference_path));
+    //   modified_reference_path_in_gridmap_ptr_.reset(
+    //     new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
+    //   if(!got_modified_reference_path_)
+    //   { 
+    //     std::cerr << "Could not get global modified path" << std::endl;
+    //     return;
+    //   }
       
-      if(only_testing_modified_global_path_)
-      {
-        got_modified_reference_path_ = false;
-      }
-    }
-    // safety_waypoints_pub_.publish(*in_waypoints_ptr_);  
-    // return;
+    //   if(only_testing_modified_global_path_)
+    //   {
+    //     got_modified_reference_path_ = false;
+    //   }
+    // }
+    // // safety_waypoints_pub_.publish(*in_waypoints_ptr_);  
+    // // return;
     
-    // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
-    // 経過時間を取得
-    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-    std::cout <<"modified global path " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+    // // 3. 現在日時を再度取得
+    // std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+    // // 経過時間を取得
+    // std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+    // std::cout <<"modified global path " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
     
     std::vector<autoware_msgs::Waypoint> out_waypoints;
@@ -561,25 +578,25 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
     
-    // visualize debug modified reference point
-    visualization_msgs::Marker debug_modified_reference_points;
-    debug_modified_reference_points.lifetime = ros::Duration(0.2);
-    debug_modified_reference_points.header = in_pose_ptr_->header;
-    debug_modified_reference_points.ns = std::string("debug_modified_reference_points");
-    debug_modified_reference_points.action = visualization_msgs::Marker::MODIFY;
-    debug_modified_reference_points.pose.orientation.w = 1.0;
-    debug_modified_reference_points.id = unique_id;
-    debug_modified_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_modified_reference_points.scale.x = 0.9;
-    debug_modified_reference_points.color.r = 1.0f;
-    debug_modified_reference_points.color.g = 1.0f;
-    debug_modified_reference_points.color.a = 1;
-    for(const auto& waypoint: *modified_reference_path_ptr_)
-    {
-      debug_modified_reference_points.points.push_back(waypoint.pose.pose.position);
-    }
-    points_marker_array.markers.push_back(debug_modified_reference_points);
-    unique_id++;
+    // // visualize debug modified reference point
+    // visualization_msgs::Marker debug_modified_reference_points;
+    // debug_modified_reference_points.lifetime = ros::Duration(0.2);
+    // debug_modified_reference_points.header = in_pose_ptr_->header;
+    // debug_modified_reference_points.ns = std::string("debug_modified_reference_points");
+    // debug_modified_reference_points.action = visualization_msgs::Marker::MODIFY;
+    // debug_modified_reference_points.pose.orientation.w = 1.0;
+    // debug_modified_reference_points.id = unique_id;
+    // debug_modified_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    // debug_modified_reference_points.scale.x = 0.9;
+    // debug_modified_reference_points.color.r = 1.0f;
+    // debug_modified_reference_points.color.g = 1.0f;
+    // debug_modified_reference_points.color.a = 1;
+    // for(const auto& waypoint: *modified_reference_path_ptr_)
+    // {
+    //   debug_modified_reference_points.points.push_back(waypoint.pose.pose.position);
+    // }
+    // points_marker_array.markers.push_back(debug_modified_reference_points);
+    // unique_id++;
     
     // visualize gridmap point
     visualization_msgs::Marker debug_incremental_goal_point;
