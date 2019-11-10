@@ -413,7 +413,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     std::cout <<"modified global path " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
     
-    // std::vector<autoware_msgs::Waypoint> out_waypoints;
+    std::vector<autoware_msgs::Waypoint> out_waypoints;
     // qp_planner_ptr_->doPlan(*gridmap2map_tf_,
     //                         *in_pose_ptr_,
     //                         grid_map,
