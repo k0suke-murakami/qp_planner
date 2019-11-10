@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <chrono>
 
@@ -44,6 +45,15 @@
 #include "modified_reference_path_generator.h"
 
 #include "qp_planner_ros.h"
+
+double calculate2DDistace(const geometry_msgs::Point& point1,
+                          const geometry_msgs::Point& point2)
+{
+  double dx = point1.x - point2.x;
+  double dy = point1.y - point2.y;
+  double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+  return distance;
+}
 
 QPPlannerROS::QPPlannerROS()
   : nh_(), 
@@ -253,97 +263,222 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
     
     // trigger when call generateModifiedReferencePath
-    // //calculate s between nearest reference path point and first reference path point
-    // if(modified_reference_path_ptr_)
-    // {
-    //   double min_dist = 999999;
-    //   geometry_msgs::Point first_reference_point = modified_reference_path_ptr_->front().pose.pose.position;
-    //   double accumulated_distance = 0;
-    //   double accumulated_distance_till_nearest_point = 0;
-    //   double past_px = modified_reference_path_ptr_->front().pose.pose.position.x;
-    //   double past_py = modified_reference_path_ptr_->front().pose.pose.position.y;
-    //   for(size_t i = 0; i < modified_reference_path_ptr_->size(); i++)
-    //   {
-    //     double px = modified_reference_path_ptr_->at(i).pose.pose.position.x;
-    //     double py = modified_reference_path_ptr_->at(i).pose.pose.position.y;
-    //     accumulated_distance += std::sqrt(std::pow(px-past_px,2)+std::pow(py-past_py,2));
-    //     past_px = px;
-    //     past_py = py;
-    //     double ex = in_pose_ptr_->pose.position.x;
-    //     double ey = in_pose_ptr_->pose.position.y;
-    //     double distance = std::sqrt(std::pow(px-ex, 2)+ std::pow(py-ey, 2));
-    //     // std::cerr << "acccumulate " << accumulated_distance << std::endl;
-    //     // std::cerr << "distance " << distance << std::endl;
-    //     if(distance < min_dist)
-    //     {
-    //       min_dist = distance;
-    //       accumulated_distance_till_nearest_point = accumulated_distance;
-    //     }
-    //   }
-    //   std::cerr << "accumulated distance till nearest " << 
-    //                 accumulated_distance_till_nearest_point<< std::endl;
-    //   std::cerr << "min_dist " << 
-    //                 min_dist<< std::endl;
-    // }
+    //calculate s between nearest reference path point and first reference path point
+    geometry_msgs::Point incremental_start_point;
+    geometry_msgs::Point incremental_goal_point;
+    if(incremental_reference_path_in_map_ptr_)
+    {
+      // double min_dist = 999999;
+      // geometry_msgs::Point first_reference_point = 
+      //   incremental_reference_path_in_map_ptr_->front().pose.pose.position;
+      // double accumulated_distance = 0;
+      // double accumulated_distance_till_nearest_point = 0;
+      // double past_px = first_reference_point.x;
+      // double past_py = first_reference_point.y;
+      // for(size_t i = 0; i < incremental_reference_path_in_map_ptr_->size(); i++)
+      // {
+      //   double px = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.x;
+      //   double py = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.y;
+      //   accumulated_distance += std::sqrt(std::pow(px-past_px,2)+std::pow(py-past_py,2));
+      //   past_px = px;
+      //   past_py = py;
+      //   double ex = in_pose_ptr_->pose.position.x;
+      //   double ey = in_pose_ptr_->pose.position.y;
+      //   double distance = std::sqrt(std::pow(px-ex, 2)+ std::pow(py-ey, 2));
+      //   // std::cerr << "acccumulate " << accumulated_distance << std::endl;
+      //   // std::cerr << "distance " << distance << std::endl;
+      //   if(distance < min_dist)
+      //   {
+      //     min_dist = distance;
+      //     accumulated_distance_till_nearest_point = accumulated_distance;
+      //   }
+      // }
+      // std::cerr << "accumulated distance till nearest " << 
+      //               accumulated_distance_till_nearest_point<< std::endl;
+      // std::cerr << "min_dist " << 
+      //               min_dist<< std::endl;
+      
+      geometry_msgs::Point past_p = 
+        incremental_reference_path_in_map_ptr_->front().pose.pose.position;
+      double accumulated_distance = 0;
+      for(size_t i = 0; i < incremental_reference_path_in_map_ptr_->size(); i++)
+      {
+        // double px = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.x;
+        // double py = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position.y;
+        // double fx = first_reference_point.x;
+        // double fy = first_reference_point.y;
+        // double distance = std::sqrt(std::pow(px-fx, 2)+ std::pow(py-fy, 2));
+        double distance = calculate2DDistace(
+                           incremental_reference_path_in_map_ptr_->at(i).pose.pose.position,
+                           past_p);
+        past_p = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position;
+        accumulated_distance += distance;
+      }
+      std::cerr << "incremental path size " << incremental_reference_path_in_gridmap_ptr_->size() << std::endl;
+      std::cerr << "accumulated dist " << accumulated_distance << std::endl;
+      if(accumulated_distance < 30)
+      {
+        // // 1. 現在日時を取得
+        std::chrono::high_resolution_clock::time_point begin_incremental = 
+        std::chrono::high_resolution_clock::now();
+        
+        incremental_start_point = incremental_reference_path_in_map_ptr_->back().pose.pose.position;
+        double min_dist = 99999;
+        size_t nearest_wp_index = 0;
+        for(size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
+        {
+          double dist = calculate2DDistace(
+             in_waypoints_ptr_->waypoints[i].pose.pose.position, 
+             incremental_start_point);
+          if(dist < min_dist)
+          {
+            min_dist =dist;
+            nearest_wp_index = i;
+          }
+        }
+        
+        double min_dist_to_goal = 99999;
+        for(size_t i= nearest_wp_index; i < nearest_wp_index + 20; i++)
+        {
+          double dist = calculate2DDistace(
+             in_waypoints_ptr_->waypoints[i].pose.pose.position, 
+             incremental_start_point);
+          if(dist < min_dist_to_goal && dist > 3)
+          {
+            min_dist_to_goal =dist;
+            incremental_goal_point = in_waypoints_ptr_->waypoints[i].pose.pose.position;
+          }
+        }
+        std::cerr << "min dist " << min_dist << std::endl;
+        std::cerr << "min dist " << min_dist_to_goal << std::endl;
+        geometry_msgs::Point point1_in_gridmap;
+        tf2::doTransform(incremental_start_point, point1_in_gridmap, *map2gridmap_tf_);
+        geometry_msgs::Point point2_in_gridmap;
+        tf2::doTransform(incremental_goal_point, point2_in_gridmap, *map2gridmap_tf_);
+        
+        double center_x = (point1_in_gridmap.x+point2_in_gridmap.x)/2.0;
+        double center_y = (point1_in_gridmap.y+point2_in_gridmap.y)/2.0;
+        double length_x_buffer = 3.0;
+        double length_x = (point2_in_gridmap.x - point1_in_gridmap.x)+length_x_buffer;
+        double length_y = point2_in_gridmap.y - point1_in_gridmap.y;
+        
+        grid_map::Position center_p;
+        grid_map::Length length;
+        center_p << center_x, center_y;
+        // double bigger_length = std::max(10., length_y);
+        length << std::max(static_cast<double>(10), length_x),
+         std::max(static_cast<double>(15), length_y);
+        bool is_success;
+        //TODO: get all layers submap; it is not efficient 
+        grid_map::GridMap submap =  grid_map.getSubmap(center_p, length, is_success);
+        
+        //debug; visualization
+        nav_msgs::OccupancyGrid out_occupancy_grid;
+        grid_map::GridMapRosConverter::toOccupancyGrid(submap, 
+                                                      submap.getLayers().back(),
+                                                      0,
+                                                      1,
+                                                      out_occupancy_grid);
+        out_occupancy_grid.header = in_gridmap_ptr_->info.header;
+        gridmap_nav_pub_.publish(out_occupancy_grid);
+        //debug end
+        std::vector<autoware_msgs::Waypoint> modified_reference_path_in_map;
+        std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
+        bool got_modified_incremental_reference_path =  
+          modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+              submap,
+              incremental_start_point,
+              incremental_goal_point,
+              *gridmap2map_tf_,
+              *map2gridmap_tf_,
+              modified_reference_path_in_map,
+              modified_reference_path_in_gridmap);
+        incremental_reference_path_in_map_ptr_->insert(
+          incremental_reference_path_in_map_ptr_->end(),
+          modified_reference_path_in_map.begin(),
+          modified_reference_path_in_map.end());
+        incremental_reference_path_in_gridmap_ptr_->insert(
+          incremental_reference_path_in_gridmap_ptr_->end(),
+          modified_reference_path_in_gridmap.begin(),
+          modified_reference_path_in_gridmap.end());
+        
+        // 3. 現在日時を再度取得
+        std::chrono::high_resolution_clock::time_point end_incremental = 
+        std::chrono::high_resolution_clock::now();
+        // 経過時間を取得
+        std::chrono::nanoseconds incremental_time = 
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end_incremental - begin_incremental);
+        std::cout <<"incremental time " <<incremental_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+      }
+    }
+    else
+    {
+      
+      // 1. 現在日時を取得
+      std::chrono::high_resolution_clock::time_point begin_incremental = 
+      std::chrono::high_resolution_clock::now();
+      
+      incremental_start_point =  in_waypoints_ptr_->waypoints.at(5).pose.pose.position;
+      geometry_msgs::Point point1_in_gridmap;
+      tf2::doTransform(incremental_start_point, point1_in_gridmap, *map2gridmap_tf_);
+      incremental_goal_point =  in_waypoints_ptr_->waypoints.at(8).pose.pose.position;
+      geometry_msgs::Point point2_in_gridmap;
+      tf2::doTransform(incremental_goal_point, point2_in_gridmap, *map2gridmap_tf_);
+      
+      double center_x = (point1_in_gridmap.x+point2_in_gridmap.x)/2.0;
+      double center_y = (point1_in_gridmap.y+point2_in_gridmap.y)/2.0;
+      double length_x_buffer = 3.0;
+      double length_x = (point2_in_gridmap.x - point1_in_gridmap.x)+length_x_buffer;
+      double length_y = point2_in_gridmap.y - point1_in_gridmap.y;
+      
+      grid_map::Position center_p;
+      grid_map::Length length;
+      center_p << center_x, center_y;
+      // double bigger_length = std::max(10., length_y);
+      length << length_x, std::max(static_cast<double>(10), length_y);
+      bool is_success;
+      //TODO: get all layers submap; it is not efficient 
+      grid_map::GridMap submap =  grid_map.getSubmap(center_p, length, is_success);
+      
+      
+      //debug; visualization
+      nav_msgs::OccupancyGrid out_occupancy_grid;
+      grid_map::GridMapRosConverter::toOccupancyGrid(submap, 
+                                                    submap.getLayers().back(),
+                                                    0,
+                                                    1,
+                                                    out_occupancy_grid);
+      out_occupancy_grid.header = in_gridmap_ptr_->info.header;
+      gridmap_nav_pub_.publish(out_occupancy_grid);
+      //debug end
+      
+      std::vector<autoware_msgs::Waypoint> modified_reference_path_in_map;
+      std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
+      bool got_modified_incremental_reference_path =  
+        modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+            submap,
+            incremental_start_point,
+            incremental_goal_point,
+            *gridmap2map_tf_,
+            *map2gridmap_tf_,
+            modified_reference_path_in_map,
+            modified_reference_path_in_gridmap);
+      std::cerr << "size of incremental path " << modified_reference_path_in_map.size() << std::endl;
+      incremental_reference_path_in_map_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_map));
+      incremental_reference_path_in_gridmap_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
+      
+      // 3. 現在日時を再度取得
+      std::chrono::high_resolution_clock::time_point end_incremental = 
+      std::chrono::high_resolution_clock::now();
+      // 経過時間を取得
+      std::chrono::nanoseconds incremental_time = 
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end_incremental - begin_incremental);
+      std::cout <<"incremental time " <<incremental_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+    }
     
-    // 1. 現在日時を取得
-    std::chrono::high_resolution_clock::time_point begin_incremental = 
-    std::chrono::high_resolution_clock::now();
     
-    geometry_msgs::Point point1 =  in_waypoints_ptr_->waypoints.at(5).pose.pose.position;
-    geometry_msgs::Point point1_in_gridmap;
-    tf2::doTransform(point1, point1_in_gridmap, *map2gridmap_tf_);
-    geometry_msgs::Point point2 =  in_waypoints_ptr_->waypoints.at(8).pose.pose.position;
-    geometry_msgs::Point point2_in_gridmap;
-    tf2::doTransform(point2, point2_in_gridmap, *map2gridmap_tf_);
-    
-    double center_x = (point1_in_gridmap.x+point2_in_gridmap.x)/2.0;
-    double center_y = (point1_in_gridmap.y+point2_in_gridmap.y)/2.0;
-    double length_x_buffer = 3.0;
-    double length_x = (point2_in_gridmap.x - point1_in_gridmap.x)+length_x_buffer;
-    double length_y = point2_in_gridmap.y - point1_in_gridmap.y;
-    
-    grid_map::Position center_p;
-    grid_map::Length length;
-    center_p << center_x, center_y;
-    length << length_x, 10;
-    bool is_success;
-    //TODO: get all layers submap; it is not efficient 
-    grid_map::GridMap submap =  grid_map.getSubmap(center_p, length, is_success);
-    
-    
-    //debug; visualization
-    nav_msgs::OccupancyGrid out_occupancy_grid;
-    grid_map::GridMapRosConverter::toOccupancyGrid(submap, 
-                                                  submap.getLayers().back(),
-                                                  0,
-                                                  1,
-                                                  out_occupancy_grid);
-    out_occupancy_grid.header = in_gridmap_ptr_->info.header;
-    gridmap_nav_pub_.publish(out_occupancy_grid);
-    //debug end
-    
-    std::vector<autoware_msgs::Waypoint> modified_reference_path;
-    std::vector<autoware_msgs::Waypoint> modified_reference_path_in_gridmap;
-    bool got_modified_incremental_reference_path =  
-      modified_reference_path_generator_ptr_->generateModifiedReferencePath(
-          submap,
-          point1,
-          point2,
-          *gridmap2map_tf_,
-          *map2gridmap_tf_,
-          modified_reference_path,
-          modified_reference_path_in_gridmap);
-    std::cerr << "size of incremental path " << modified_reference_path.size() << std::endl;
-    
-    
-    // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point end_incremental = 
-    std::chrono::high_resolution_clock::now();
-    // 経過時間を取得
-    std::chrono::nanoseconds incremental_time = 
-    std::chrono::duration_cast<std::chrono::nanoseconds>(end_incremental - begin_incremental);
-    std::cout <<"incremental time " <<incremental_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
     
     
@@ -447,23 +582,23 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     unique_id++;
     
     // visualize gridmap point
-    visualization_msgs::Marker debug_gridmap_point;
-    debug_gridmap_point.lifetime = ros::Duration(0.2);
-    debug_gridmap_point.header = in_pose_ptr_->header;
-    debug_gridmap_point.ns = std::string("debug_gridmap_point");
-    debug_gridmap_point.action = visualization_msgs::Marker::MODIFY;
-    debug_gridmap_point.pose.orientation.w = 1.0;
-    debug_gridmap_point.id = unique_id;
-    debug_gridmap_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_gridmap_point.scale.x = 0.9;
-    debug_gridmap_point.color.r = 1.0f;
-    debug_gridmap_point.color.g = 1.0f;
-    debug_gridmap_point.color.a = 1;
+    visualization_msgs::Marker debug_incremental_goal_point;
+    debug_incremental_goal_point.lifetime = ros::Duration(0.2);
+    debug_incremental_goal_point.header = in_pose_ptr_->header;
+    debug_incremental_goal_point.ns = std::string("debug_incremental_goal_point");
+    debug_incremental_goal_point.action = visualization_msgs::Marker::MODIFY;
+    debug_incremental_goal_point.pose.orientation.w = 1.0;
+    debug_incremental_goal_point.id = unique_id;
+    debug_incremental_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_incremental_goal_point.scale.x = 0.9;
+    debug_incremental_goal_point.color.r = 1.0f;
+    debug_incremental_goal_point.color.g = 0.0f;
+    debug_incremental_goal_point.color.a = 1;
     
-    debug_gridmap_point.points.push_back(point1);
-    debug_gridmap_point.points.push_back(point2);
+    debug_incremental_goal_point.points.push_back(incremental_start_point);
+    debug_incremental_goal_point.points.push_back(incremental_goal_point);
     
-    points_marker_array.markers.push_back(debug_gridmap_point);
+    points_marker_array.markers.push_back(debug_incremental_goal_point);
     unique_id++;
     
     // visualize gridmap point
@@ -480,7 +615,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     debug_incremental_path.color.g = 1.0f;
     debug_incremental_path.color.a = 1;
     
-    for(const auto& waypoint: modified_reference_path)
+    for(const auto& waypoint: *incremental_reference_path_in_map_ptr_)
     {
       debug_incremental_path.points.push_back(waypoint.pose.pose.position);
     }

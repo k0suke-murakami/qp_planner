@@ -82,6 +82,8 @@ private:
   bool only_testing_modified_global_path_;
   
   //TODO: not good code
+  std::unique_ptr<std::vector<autoware_msgs::Waypoint>> incremental_reference_path_in_map_ptr_;
+  std::unique_ptr<std::vector<autoware_msgs::Waypoint>> incremental_reference_path_in_gridmap_ptr_;
   std::unique_ptr<std::vector<autoware_msgs::Waypoint>> modified_reference_path_ptr_;
   std::unique_ptr<std::vector<autoware_msgs::Waypoint>> modified_reference_path_in_gridmap_ptr_;
   std::vector<Point> center_line_points_;

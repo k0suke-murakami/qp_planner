@@ -629,6 +629,13 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::cerr << "Error: fail to find goal by graph A*; "<< dist  <<" away from goal" << std::endl;
     return false;
   }
+  
+  if(current_node.parent_node == nullptr)
+  {
+    std::cerr << "no node is explored"  << std::endl;
+    return true;
+  }
+  
   while(current_node.parent_node != nullptr)
   {
     PathPoint path_point;
