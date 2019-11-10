@@ -67,7 +67,7 @@ private:
   ros::NodeHandle nh_, private_nh_;
   ros::Publisher safety_waypoints_pub_;
   ros::Publisher markers_pub_;
-  ros::Publisher gridmap_pointcloud_pub_;
+  ros::Publisher gridmap_nav_pub_;
   ros::Subscriber current_pose_sub_;
   ros::Subscriber current_velocity_sub_;
   ros::Subscriber final_waypoints_sub_;
