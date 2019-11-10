@@ -67,10 +67,7 @@ std::vector<Node> expandNode(Node& parent_node,
                              const Node& goal_node,
                              const double min_r,
                              const double max_r)
-{
-  // const double min_r = 1.6;
-  // const double max_r = 10;
-  
+{ 
   //r min max
   double current_r;
   if(parent_node.r < min_r)
@@ -85,11 +82,6 @@ std::vector<Node> expandNode(Node& parent_node,
   {
     current_r = parent_node.r;
   }
-  double distance_to_goal = calculate2DDistace(goal_node.p, parent_node.p);
-  if(distance_to_goal< current_r)
-  {
-    current_r = distance_to_goal;
-  }
   
   
   std::vector<Node> child_nodes;
@@ -99,13 +91,10 @@ std::vector<Node> expandNode(Node& parent_node,
   double delta_theta = 2*M_PI/36.0;
   for(double theta = 0; theta < 2*M_PI; theta += delta_theta)
   {
-    // std::cerr << "theta " << theta << std::endl;
     Eigen::Matrix2d rotation;
     rotation << std::cos(theta), - std::sin(theta),
                 std::sin(theta),   std::cos(theta);
-    // std::cerr << "rotation " << rotation << std::endl;
     Eigen::Vector2d rotated_delta = rotation * delta_child_p;
-    // std::cerr << "aaaaa " << rotated_delta << std::endl;
     Node child_node;
     child_node.p = rotated_delta + parent_node.p;
     try 
@@ -127,6 +116,13 @@ std::vector<Node> expandNode(Node& parent_node,
     // child_node.g = parent_node.g + child_node.r;
     child_node.h = calculate2DDistace(child_node.p, goal_node.p);
     child_node.f = child_node.g + child_node.h;
+    
+    //hacky way to stop stacking
+    if(child_node.h < child_node.f)
+    {
+      child_node.f = child_node.h;
+    }
+    
     child_node.parent_node = std::make_shared<Node>(parent_node);
     child_nodes.push_back(child_node);
   }
@@ -571,6 +567,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     std::sort(s_open.begin(), s_open.end(), compareF);
     Node lowest_f_node = s_open.front();
+    std::cerr << "lowest g " << lowest_f_node.g << std::endl;
+    std::cerr << "lowest h " << lowest_f_node.h << std::endl;
+    std::cerr << "lowest f " << lowest_f_node.f << std::endl;
     s_open.erase(s_open.begin());
     if(f_goal < lowest_f_node.f)
     {
