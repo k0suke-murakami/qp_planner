@@ -48,66 +48,66 @@ void QPPlanner::doPlan(
   const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints_in_lidar,
   std::vector<autoware_msgs::Waypoint>& out_waypoints)
 {
-  // 1. 現在日時を取得
-  std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
+  // // 1. 現在日時を取得
+  // std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
   std::string layer_name = grid_map.getLayers().back();
-  grid_map::Matrix grid_data = grid_map.get(layer_name);
+  // grid_map::Matrix grid_data = grid_map.get(layer_name);
 
-  // grid_length y and grid_length_x respectively
-  dope::Index2 size({ 200, 600 });
-  dope::Grid<float, 2> f(size);
-  dope::Grid<dope::SizeType, 2> indices(size);
-  bool is_empty_cost = true;
-  for (dope::SizeType i = 0; i < size[0]; ++i)
-  {
-    for (dope::SizeType j = 0; j < size[1]; ++j)
-    {
-      if (grid_data(i * size[1] + j) > 0.01)
-      {
-        f[i][j] = 0.0f;
-        is_empty_cost = false;
-      }
-      else
-      {
-        f[i][j] = std::numeric_limits<float>::max();
-      }
-    }
-  }
-  // Note: this is necessary at least at the first distance transform execution
-  // and every time a reset is desired; it is not, instead, when updating
-  dt::DistanceTransform::initializeIndices(indices);
+  // // grid_length y and grid_length_x respectively
+  // dope::Index2 size({ 200, 600 });
+  // dope::Grid<float, 2> f(size);
+  // dope::Grid<dope::SizeType, 2> indices(size);
+  // bool is_empty_cost = true;
+  // for (dope::SizeType i = 0; i < size[0]; ++i)
+  // {
+  //   for (dope::SizeType j = 0; j < size[1]; ++j)
+  //   {
+  //     if (grid_data(i * size[1] + j) > 0.01)
+  //     {
+  //       f[i][j] = 0.0f;
+  //       is_empty_cost = false;
+  //     }
+  //     else
+  //     {
+  //       f[i][j] = std::numeric_limits<float>::max();
+  //     }
+  //   }
+  // }
+  // // Note: this is necessary at least at the first distance transform execution
+  // // and every time a reset is desired; it is not, instead, when updating
+  // dt::DistanceTransform::initializeIndices(indices);
 
   
-  dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
+  // dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
   
-  for (dope::SizeType i = 0; i < size[0]; ++i)
-  {
-    for (dope::SizeType j = 0; j < size[1]; ++j)
-    {
-      if (is_empty_cost)
-      {
-        grid_data(i * size[1] + j) = 1;
-      }
-      else
-      {
-        grid_data(i * size[1] + j) = f[i][j];
-      }
-    }
-  }
-  grid_map::GridMap clearance_map;
-  clearance_map.setFrameId(grid_map.getFrameId());
-  clearance_map.setGeometry(grid_map.getLength(), 
-                            grid_map.getResolution(),
-                            grid_map.getPosition());
-  std::string clearance_layer = "CLEARANCE_LAYER";
-  clearance_map.add(clearance_layer, grid_data);
+  // for (dope::SizeType i = 0; i < size[0]; ++i)
+  // {
+  //   for (dope::SizeType j = 0; j < size[1]; ++j)
+  //   {
+  //     if (is_empty_cost)
+  //     {
+  //       grid_data(i * size[1] + j) = 1;
+  //     }
+  //     else
+  //     {
+  //       grid_data(i * size[1] + j) = f[i][j];
+  //     }
+  //   }
+  // }
+  // grid_map::GridMap clearance_map;
+  // clearance_map.setFrameId(grid_map.getFrameId());
+  // clearance_map.setGeometry(grid_map.getLength(), 
+  //                           grid_map.getResolution(),
+  //                           grid_map.getPosition());
+  // std::string clearance_layer = "CLEARANCE_LAYER";
+  // clearance_map.add(clearance_layer, grid_data);
   
-  // 3. 現在日時を再度取得
-  std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
-  // 経過時間を取得
-  std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
-  std::cout <<"distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+  // // 3. 現在日時を再度取得
+  // std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
+  // // 経過時間を取得
+  // std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
+  // std::cout <<"distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   // 1. 現在日時を取得
   std::chrono::high_resolution_clock::time_point begin2 = std::chrono::high_resolution_clock::now();

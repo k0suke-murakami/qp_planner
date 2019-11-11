@@ -310,7 +310,7 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
         accumulated_distance += distance;
       }
       std::cerr << "incremental path size " << incremental_reference_path_in_gridmap_ptr_->size() << std::endl;
-      std::cerr << "accumulated dist " << accumulated_distance << std::endl;
+      // std::cerr << "accumulated dist " << accumulated_distance << std::endl;
       if(accumulated_distance < 30)
       {
         // // 1. 現在日時を取得
@@ -423,6 +423,15 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
             incremental_reference_path_in_gridmap_ptr_->end(),
             modified_reference_path_in_gridmap.begin(),
             modified_reference_path_in_gridmap.end());
+            
+          cached_incremental_reference_path_in_map_ptr_->insert(
+            cached_incremental_reference_path_in_map_ptr_->end(),
+            modified_reference_path_in_map.begin(),
+            modified_reference_path_in_map.end());
+          cached_incremental_reference_path_in_gridmap_ptr_->insert(
+            cached_incremental_reference_path_in_gridmap_ptr_->end(),
+            modified_reference_path_in_gridmap.begin(),
+            modified_reference_path_in_gridmap.end());
           
           // 3. 現在日時を再度取得
           std::chrono::high_resolution_clock::time_point end_incremental = 
@@ -501,6 +510,11 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       incremental_reference_path_in_gridmap_ptr_.reset(
         new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
       
+      cached_incremental_reference_path_in_map_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_map));
+      cached_incremental_reference_path_in_gridmap_ptr_.reset(
+        new std::vector<autoware_msgs::Waypoint>(modified_reference_path_in_gridmap));
+        
       // 3. 現在日時を再度取得
       std::chrono::high_resolution_clock::time_point end_incremental = 
       std::chrono::high_resolution_clock::now();
@@ -510,12 +524,70 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       std::cout <<"incremental time " <<incremental_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     }
     
+    // if(cached_incremental_reference_path_in_gridmap_ptr_)
+    // {
+    // std::cerr << "cache size " << cached_incremental_reference_path_in_gridmap_ptr_->size() << std::endl;
+      
+    // }
+    
+    
+    //begin qp_planner
+    //first convert to gridmap freme
+    // input_waypoints_ = *incremental_reference_path_in_map_ptr_
+    input_waypoints_.clear();
+    for(const auto& point: *incremental_reference_path_in_map_ptr_)
+    {
+      geometry_msgs::Pose pose;
+      tf2::doTransform(point.pose.pose, pose, *map2gridmap_tf_);
+      autoware_msgs::Waypoint tmp_wp;
+      tmp_wp.pose.pose = pose;
+      input_waypoints_.push_back(tmp_wp);
+    }
+    //second compensate points
+    geometry_msgs::Point past_reference_point = input_waypoints_.front().pose.pose.position;
+    double accumulated_distance = 0;
+    for(const auto& point: input_waypoints_)
+    {
+      geometry_msgs::Point reference_point = point.pose.pose.position;
+      double distance = calculate2DDistace(reference_point, past_reference_point);
+      accumulated_distance += distance;
+      past_reference_point = reference_point;
+    }
+    std::cerr << "current acc dist " << accumulated_distance << std::endl;
+    
+    if(accumulated_distance < 30)
+    {
+      double extra_dist = 30 - accumulated_distance;
+      std::cerr << "extra dist " << extra_dist << std::endl;
+      geometry_msgs::Point extra_point;
+      extra_point.x = input_waypoints_.front().pose.pose.position.x - extra_dist;
+      extra_point.y = input_waypoints_.front().pose.pose.position.y;
+      extra_point.z = input_waypoints_.front().pose.pose.position.z;
+      
+      autoware_msgs::Waypoint dummy_wp = incremental_reference_path_in_gridmap_ptr_->back();
+      dummy_wp.pose.pose.position = extra_point;
+      input_waypoints_.insert(input_waypoints_.begin(), dummy_wp);
+    }
+    
+    // if(accumulated_distance < 30)
+    // {
+    //   geometry_msgs::Point debug_past_reference_point = input_waypoints_in_gridmap.front().pose.pose.position;
+    //   double debug_accumulated_distance = 0;
+    //   for(const auto& point: input_waypoints_in_gridmap)
+    //   {
+    //     geometry_msgs::Point reference_point = point.pose.pose.position;
+    //     double distance = calculate2DDistace(reference_point, debug_past_reference_point);
+    //     debug_accumulated_distance += distance;
+    //     debug_past_reference_point = reference_point;
+    //   }
+    //   std::cerr << "debug acc dist " << debug_accumulated_distance << std::endl;
+    // }
     
     std::vector<autoware_msgs::Waypoint> out_waypoints;
     // qp_planner_ptr_->doPlan(*gridmap2map_tf_,
     //                         *in_pose_ptr_,
     //                         grid_map,
-    //                         *modified_reference_path_in_gridmap_ptr_,
+    //                         *incremental_reference_path_in_gridmap_ptr_,
     //                         out_waypoints);
     std::cerr << "--------------" << std::endl;
     
@@ -584,6 +656,28 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     }
     
     points_marker_array.markers.push_back(debug_incremental_path);
+    unique_id++;
+    
+    
+    
+    // visualize compensted points at qp_planner
+    visualization_msgs::Marker debug_compensatec_ref_points;
+    debug_compensatec_ref_points.lifetime = ros::Duration(0.2);
+    debug_compensatec_ref_points.header = in_gridmap_ptr_->info.header;
+    debug_compensatec_ref_points.ns = std::string("debug_compensatec_ref_points");
+    debug_compensatec_ref_points.action = visualization_msgs::Marker::MODIFY;
+    debug_compensatec_ref_points.pose.orientation.w = 1.0;
+    debug_compensatec_ref_points.id = unique_id;
+    debug_compensatec_ref_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_compensatec_ref_points.scale.x = 1.0f;
+    debug_compensatec_ref_points.color.r = 1.0f;
+    debug_compensatec_ref_points.color.g = 1.0f;
+    debug_compensatec_ref_points.color.a = 1;
+    for(const auto& waypoint: input_waypoints_)
+    {
+      debug_compensatec_ref_points.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_compensatec_ref_points);
     unique_id++;
     
     
