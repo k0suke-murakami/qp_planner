@@ -567,9 +567,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     std::sort(s_open.begin(), s_open.end(), compareF);
     Node lowest_f_node = s_open.front();
-    std::cerr << "lowest g " << lowest_f_node.g << std::endl;
-    std::cerr << "lowest h " << lowest_f_node.h << std::endl;
-    std::cerr << "lowest f " << lowest_f_node.f << std::endl;
+    // std::cerr << "lowest g " << lowest_f_node.g << std::endl;
+    // std::cerr << "lowest h " << lowest_f_node.h << std::endl;
+    // std::cerr << "lowest f " << lowest_f_node.f << std::endl;
     s_open.erase(s_open.begin());
     if(f_goal < lowest_f_node.f)
     {

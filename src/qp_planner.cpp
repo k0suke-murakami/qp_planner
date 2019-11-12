@@ -21,7 +21,7 @@
 
 
 QPPlanner::QPPlanner():
-number_of_sampling_points_(200),
+number_of_sampling_points_(150),
 is_solver_initialized_(false)
 {
   solver_ptr_.reset(new qpOASES::QProblemB(number_of_sampling_points_));
@@ -46,68 +46,14 @@ void QPPlanner::doPlan(
   const geometry_msgs::PoseStamped& in_current_pose,
   const grid_map::GridMap& grid_map,
   const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints_in_lidar,
-  std::vector<autoware_msgs::Waypoint>& out_waypoints)
+  std::vector<autoware_msgs::Waypoint>& out_waypoints,
+  std::vector<geometry_msgs::Point>& debug_interpolated_points,
+  std::vector<geometry_msgs::Point>& debug_interpolated_points2,
+  std::vector<geometry_msgs::Point>& debug_interpolated_points3)
 {
   // // 1. 現在日時を取得
   // std::chrono::high_resolution_clock::time_point begin1 = std::chrono::high_resolution_clock::now();
 
-  std::string layer_name = grid_map.getLayers().back();
-  // grid_map::Matrix grid_data = grid_map.get(layer_name);
-
-  // // grid_length y and grid_length_x respectively
-  // dope::Index2 size({ 200, 600 });
-  // dope::Grid<float, 2> f(size);
-  // dope::Grid<dope::SizeType, 2> indices(size);
-  // bool is_empty_cost = true;
-  // for (dope::SizeType i = 0; i < size[0]; ++i)
-  // {
-  //   for (dope::SizeType j = 0; j < size[1]; ++j)
-  //   {
-  //     if (grid_data(i * size[1] + j) > 0.01)
-  //     {
-  //       f[i][j] = 0.0f;
-  //       is_empty_cost = false;
-  //     }
-  //     else
-  //     {
-  //       f[i][j] = std::numeric_limits<float>::max();
-  //     }
-  //   }
-  // }
-  // // Note: this is necessary at least at the first distance transform execution
-  // // and every time a reset is desired; it is not, instead, when updating
-  // dt::DistanceTransform::initializeIndices(indices);
-
-  
-  // dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
-  
-  // for (dope::SizeType i = 0; i < size[0]; ++i)
-  // {
-  //   for (dope::SizeType j = 0; j < size[1]; ++j)
-  //   {
-  //     if (is_empty_cost)
-  //     {
-  //       grid_data(i * size[1] + j) = 1;
-  //     }
-  //     else
-  //     {
-  //       grid_data(i * size[1] + j) = f[i][j];
-  //     }
-  //   }
-  // }
-  // grid_map::GridMap clearance_map;
-  // clearance_map.setFrameId(grid_map.getFrameId());
-  // clearance_map.setGeometry(grid_map.getLength(), 
-  //                           grid_map.getResolution(),
-  //                           grid_map.getPosition());
-  // std::string clearance_layer = "CLEARANCE_LAYER";
-  // clearance_map.add(clearance_layer, grid_data);
-  
-  // // 3. 現在日時を再度取得
-  // std::chrono::high_resolution_clock::time_point end1 = std::chrono::high_resolution_clock::now();
-  // // 経過時間を取得
-  // std::chrono::nanoseconds elapsed_time1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end1 - begin1);
-  // std::cout <<"distance transform " <<elapsed_time1.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
   
   // 1. 現在日時を取得
   std::chrono::high_resolution_clock::time_point begin2 = std::chrono::high_resolution_clock::now();
@@ -117,9 +63,19 @@ void QPPlanner::doPlan(
   for(const auto& point: in_reference_waypoints_in_lidar)
   {
     tmp_x.push_back(point.pose.pose.position.x);
-    tmp_y.push_back(point.pose.pose.position.y);
+    tmp_y.push_back(point.pose.pose.position.y); 
   }
   ReferencePath reference_path(tmp_x, tmp_y, 0.2);
+  std::cerr << "reference path size " << reference_path.x_.size() << std::endl;
+  
+  for (size_t i = 0; i < number_of_sampling_points_; i++)
+  {
+    geometry_msgs::Point point;
+    point.x = reference_path.x_[i];
+    point.y = reference_path.y_[i];
+    debug_interpolated_points.push_back(point);
+  }
+  
   
   // 経過時間を取得
   std::chrono::high_resolution_clock::time_point end2 = std::chrono::high_resolution_clock::now();
@@ -127,9 +83,6 @@ void QPPlanner::doPlan(
   std::chrono::duration_cast<std::chrono::nanoseconds>(end2 - begin2);
   std::cout <<"frenet transform " <<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
-  // 1. 現在日時を取得
-  // std::chrono::high_resolution_clock::time_point begin3 = std::chrono::high_resolution_clock::now();
-  
   
   //TODO: delete this chunk; unnecessary
   std::vector<double> lateral_reference_point_vec;
@@ -164,7 +117,8 @@ void QPPlanner::doPlan(
   Eigen::VectorXd tmp_b3(number_of_sampling_points_);
   for (int r = 0; r < number_of_sampling_points_; ++r)
   {
-    tmp_b1(r) = lateral_reference_point_vec[r];
+    // tmp_b1(r) = lateral_reference_point_vec[r];
+    tmp_b1(r) = 0;
     tmp_b2(r) = 0;
     tmp_b3(r) = 0;
     for (int c = 0; c < number_of_sampling_points_; ++c)
@@ -245,6 +199,7 @@ void QPPlanner::doPlan(
   
   
   std::chrono::high_resolution_clock::time_point begin3_a = std::chrono::high_resolution_clock::now();
+  std::string layer_name = grid_map.getLayers().back();
 
   for (int i = 0; i < number_of_sampling_points_; ++i)
   {
@@ -264,21 +219,37 @@ void QPPlanner::doPlan(
     }
     else
     {
-      std::cerr << "something wrong; reference point is outside map"  << std::endl;
+      std::cerr << "something wrong; reference point is outside map " << i  << std::endl;
+      cost = 1.0;
     }
     
     
     
     double left_edge, right_edge;
+    //debug
+    geometry_msgs::Point edge_point;
+    geometry_msgs::Point edge_point2;
     if(cost > 0.99999)
     {
       std::cerr << "centerpoint is occupied" << std::endl;
+      left_edge = 0;
+      right_edge = 0;
+      edge_point.x = origin_p(0);
+      edge_point.y = origin_p(1);
+    }
+    else if(p_x < 0)
+    {
+      left_edge = 0;
+      right_edge = 0;
+      edge_point2.x = origin_p(0);
+      edge_point2.y = origin_p(1);
     }
     else
     {  
       double past_p_x = p_x;
       double past_p_y = p_y;
-      for(int j = 0; j < 400; j++)
+      
+      for(int j = 0; j < 1000; j++)
       {
         double new_p_x = past_p_x + std::cos(yaw_to_left_edge)*resolution;
         double new_p_y = past_p_y + std::sin(yaw_to_left_edge)*resolution;
@@ -293,24 +264,34 @@ void QPPlanner::doPlan(
           {
             double distance = calculate2DDistace(origin_p, new_p);
             left_edge = distance;
+            edge_point.x = new_p(0);
+            edge_point.y = new_p(1);
             break;
           }
         }
         else
         {
-          std::cerr << "reach left bound in map" << std::endl;
+          // std::cerr << "reach left bound in map" << std::endl;
           Eigen::Vector2d past_p;
           past_p << past_p_x, past_p_y;
           double distance = calculate2DDistace(origin_p, past_p);
           left_edge = distance;
+          edge_point.x = past_p(0);
+          edge_point.y = past_p(1);
           break;
         }
         
         past_p_x = new_p_x;
         past_p_y = new_p_y;
       }
+      // geometry_msgs::Point tmp_point;
+      // tmp_point.x = past_p_x;
+      // tmp_point.y = past_p_y;
       
-      for(int j = 0; j < 400; j++)
+      past_p_x = p_x;
+      past_p_y = p_y;
+      
+      for(int j = 0; j < 1000; j++)
       {
         double new_p_x = past_p_x + std::cos(yaw_to_right_edge)*resolution;
         double new_p_y = past_p_y + std::sin(yaw_to_right_edge)*resolution;
@@ -324,28 +305,56 @@ void QPPlanner::doPlan(
           {
             double distance = calculate2DDistace(origin_p, new_p);
             right_edge = distance;
+            //debug
+            edge_point2.x = new_p(0);
+            edge_point2.y = new_p(1);
             break;
           }
         }
         else
         {
-          std::cerr << "reach right bound in map" << std::endl;
+          // std::cerr << "reach right bound in map" << std::endl;
           Eigen::Vector2d past_p;
           past_p << past_p_x, past_p_y;
           double distance = calculate2DDistace(origin_p, past_p);
           right_edge = distance;
+          edge_point2.x = new_p(0);
+          edge_point2.y = new_p(1);
           break;
         }
         
         past_p_x = new_p_x;
         past_p_y = new_p_y;
       }
+      
+      // tmp_point.x = past_p_x;
+      // tmp_point.y = past_p_y;
     }
-    
+    debug_interpolated_points2.push_back(edge_point);
+    debug_interpolated_points3.push_back(edge_point2);
+    upper_bound[i] = left_edge;
+    lower_bound[i] = -1*right_edge;
     // std::cerr << "origin cost " << cost<< std::endl;
     // std::cerr << "left edge " << left_edge<< std::endl;
-    // std::cerr << "right edge " << right_edge<< std::endl;
+    // std::cerr << "right edge " <<-1* right_edge<< " "<<edge_point2.x << " "<<edge_point2.y<< std::endl;
+    // std::cerr << "left edge " << left_edge<< " "<<edge_point.x << " "<<edge_point.y<< std::endl;
   }
+  
+  // std::cerr << "dddd " << debug_interpolated_points3.size() << std::endl;
+  // for (size_t i = 0; i < number_of_sampling_points_; i++)
+  // {
+  //   std::cerr << "left edge " << lower_bound[i] << std::endl;
+  // }
+  // for (size_t i = 0; i < number_of_sampling_points_; i++)
+  // {
+  //   std::cerr << "right edge " << upper_bound[i] << std::endl;
+  // }
+  // for (size_t i = 0; i < number_of_sampling_points_; i++)
+  // {
+  //   std::cerr << "left edge " << lower_bound[i] << std::endl;
+  //   std::cerr << "right edge " << upper_bound[i] << std::endl;
+  // }
+  
   // 経過時間を取得
   std::chrono::high_resolution_clock::time_point end3_a = std::chrono::high_resolution_clock::now();  
   std::chrono::nanoseconds elapsed_time3_a = 
@@ -355,18 +364,18 @@ void QPPlanner::doPlan(
   
 
   
-  lower_bound[38] = 1;
-  lower_bound[39] = 1;
-  lower_bound[40] = 1;
-  lower_bound[41] = 1;
-  lower_bound[42] = 1;
-  lower_bound[43] = 1;
-  upper_bound[38] = 3;
-  upper_bound[39] = 3;
-  upper_bound[40] = 3;
-  upper_bound[41] = 3;
-  upper_bound[42] = 3;
-  upper_bound[43] = 3;
+  // lower_bound[38] = 1;
+  // lower_bound[39] = 1;
+  // lower_bound[40] = 1;
+  // lower_bound[41] = 1;
+  // lower_bound[42] = 1;
+  // lower_bound[43] = 1;
+  // upper_bound[38] = 3;
+  // upper_bound[39] = 3;
+  // upper_bound[40] = 3;
+  // upper_bound[41] = 3;
+  // upper_bound[42] = 3;
+  // upper_bound[43] = 3;
   
   int max_iter = 500;
   
@@ -400,6 +409,7 @@ void QPPlanner::doPlan(
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = longitudinal_reference_point_vec[i];
     pose_in_lidar_tf.position.y = result[i];
+    std::cerr << "resutl y " << result[i] << std::endl;
     pose_in_lidar_tf.position.z = in_reference_waypoints_in_lidar.front().pose.pose.position.z;
     pose_in_lidar_tf.orientation.w = 1.0;
     geometry_msgs::Pose pose_in_map_tf;

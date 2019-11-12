@@ -83,9 +83,9 @@ QPPlannerROS::QPPlannerROS()
   objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &QPPlannerROS::objectsCallback, this);
   grid_map_sub_ = nh_.subscribe("/semantics/costmap", 1, &QPPlannerROS::gridmapCallback, this);
   // double timer_callback_dt = 0.05;
-  double timer_callback_delta_second = 0.1;
-  // double timer_callback_dt = 1.0;
-  // double timer_callback_dt = 0.5;
+  // double timer_callback_delta_second = 0.1;
+  double timer_callback_delta_second = 1.0;
+  // double timer_callback_delta_second = 0.5;
   timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &QPPlannerROS::timerCallback, this);
 }
 
@@ -309,7 +309,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
         past_p = incremental_reference_path_in_map_ptr_->at(i).pose.pose.position;
         accumulated_distance += distance;
       }
-      std::cerr << "incremental path size " << incremental_reference_path_in_gridmap_ptr_->size() << std::endl;
       // std::cerr << "accumulated dist " << accumulated_distance << std::endl;
       if(accumulated_distance < 30)
       {
@@ -553,7 +552,6 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
       accumulated_distance += distance;
       past_reference_point = reference_point;
     }
-    std::cerr << "current acc dist " << accumulated_distance << std::endl;
     
     if(accumulated_distance < 30)
     {
@@ -584,11 +582,18 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     // }
     
     std::vector<autoware_msgs::Waypoint> out_waypoints;
+    std::vector<geometry_msgs::Point> debug_reference_points;
+    std::vector<geometry_msgs::Point> debug_reference_points2;
+    std::vector<geometry_msgs::Point> debug_reference_points3;
     // qp_planner_ptr_->doPlan(*gridmap2map_tf_,
     //                         *in_pose_ptr_,
     //                         grid_map,
-    //                         *incremental_reference_path_in_gridmap_ptr_,
-    //                         out_waypoints);
+    //                         input_waypoints_,
+    //                         out_waypoints,
+    //                         debug_reference_points,
+    //                         debug_reference_points2,
+    //                         debug_reference_points3);
+    // std::cerr << "final qp wp size " << out_waypoints.size() << std::endl;
     std::cerr << "--------------" << std::endl;
     
     
@@ -673,32 +678,120 @@ void QPPlannerROS::timerCallback(const ros::TimerEvent &e)
     debug_compensatec_ref_points.color.r = 1.0f;
     debug_compensatec_ref_points.color.g = 1.0f;
     debug_compensatec_ref_points.color.a = 1;
+    std::cerr << "tmp point---"  << std::endl;
     for(const auto& waypoint: input_waypoints_)
     {
+      std::cerr <<  waypoint.pose.pose.position.x << std::endl;
+      debug_compensatec_ref_points.points.push_back(waypoint.pose.pose.position);
+    }
+    std::cerr << "y" << std::endl;
+    for(const auto& waypoint: input_waypoints_)
+    {
+      std::cerr <<  waypoint.pose.pose.position.y << std::endl;
       debug_compensatec_ref_points.points.push_back(waypoint.pose.pose.position);
     }
     points_marker_array.markers.push_back(debug_compensatec_ref_points);
     unique_id++;
     
     
-    //  // visualize out_waypoints
-    // visualization_msgs::Marker qp_waypoints_marker;
-    // qp_waypoints_marker.lifetime = ros::Duration(0.2);
-    // qp_waypoints_marker.header = in_pose_ptr_->header;
-    // qp_waypoints_marker.ns = std::string("qp_waypoints_marker");
-    // qp_waypoints_marker.action = visualization_msgs::Marker::MODIFY;
-    // qp_waypoints_marker.pose.orientation.w = 1.0;
-    // qp_waypoints_marker.id = unique_id;
-    // qp_waypoints_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    // qp_waypoints_marker.scale.x = 0.9;
-    // qp_waypoints_marker.color.r = 1.0f;
-    // qp_waypoints_marker.color.a = 0.6;
-    // for(const auto& waypoint: out_waypoints)
-    // {
-    //   qp_waypoints_marker.points.push_back(waypoint.pose.pose.position);
-    // }
-    // points_marker_array.markers.push_back(qp_waypoints_marker);
-    // unique_id++;
+     // visualize out_waypoints
+    visualization_msgs::Marker qp_waypoints_marker;
+    qp_waypoints_marker.lifetime = ros::Duration(0.2);
+    qp_waypoints_marker.header = in_pose_ptr_->header;
+    qp_waypoints_marker.ns = std::string("qp_waypoints_marker");
+    qp_waypoints_marker.action = visualization_msgs::Marker::MODIFY;
+    qp_waypoints_marker.pose.orientation.w = 1.0;
+    qp_waypoints_marker.id = unique_id;
+    qp_waypoints_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    qp_waypoints_marker.scale.x = 0.9;
+    qp_waypoints_marker.color.r = 1.0f;
+    qp_waypoints_marker.color.a = 0.6;
+    for(const auto& waypoint: out_waypoints)
+    {
+      qp_waypoints_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(qp_waypoints_marker);
+    unique_id++;
+    
+     // visualize out_waypoints
+    visualization_msgs::Marker debug_inerpolated_points;
+    debug_inerpolated_points.lifetime = ros::Duration(0.2);
+    debug_inerpolated_points.header = in_gridmap_ptr_->info.header;
+    debug_inerpolated_points.ns = std::string("debug_inerpolated_points");
+    debug_inerpolated_points.action = visualization_msgs::Marker::MODIFY;
+    debug_inerpolated_points.pose.orientation.w = 1.0;
+    debug_inerpolated_points.id = unique_id;
+    debug_inerpolated_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_inerpolated_points.scale.x = 0.9;
+    debug_inerpolated_points.color.r = 1.0f;
+    debug_inerpolated_points.color.a = 0.6;
+    for(const auto& waypoint: debug_reference_points)
+    {
+      debug_inerpolated_points.points.push_back(waypoint);
+    }
+    points_marker_array.markers.push_back(debug_inerpolated_points);
+    unique_id++;
+    
+     // visualize out_waypoints
+    visualization_msgs::Marker debug_inerpolated_points2;
+    debug_inerpolated_points2.lifetime = ros::Duration(0.2);
+    debug_inerpolated_points2.header = in_gridmap_ptr_->info.header;
+    debug_inerpolated_points2.ns = std::string("debug_inerpolated_points2");
+    debug_inerpolated_points2.action = visualization_msgs::Marker::MODIFY;
+    debug_inerpolated_points2.pose.orientation.w = 1.0;
+    debug_inerpolated_points2.id = unique_id;
+    debug_inerpolated_points2.type = visualization_msgs::Marker::LINE_LIST;
+    debug_inerpolated_points2.scale.x = 0.9;
+    debug_inerpolated_points2.color.g = 1.0f;
+    debug_inerpolated_points2.color.a = 0.2;
+    for(size_t i = 100; i< debug_reference_points2.size(); i++)
+    {
+      
+      debug_inerpolated_points2.points.push_back(debug_reference_points[i]);
+      debug_inerpolated_points2.points.push_back(debug_reference_points2[i]);
+    }
+    points_marker_array.markers.push_back(debug_inerpolated_points2);
+    unique_id++;
+    
+     // visualize out_waypoints
+    visualization_msgs::Marker debug_inerpolated_points3;
+    debug_inerpolated_points3.lifetime = ros::Duration(0.2);
+    debug_inerpolated_points3.header = in_gridmap_ptr_->info.header;
+    debug_inerpolated_points3.ns = std::string("debug_inerpolated_points3");
+    debug_inerpolated_points3.action = visualization_msgs::Marker::MODIFY;
+    debug_inerpolated_points3.pose.orientation.w = 1.0;
+    debug_inerpolated_points3.id = unique_id;
+    debug_inerpolated_points3.type = visualization_msgs::Marker::LINE_LIST;
+    debug_inerpolated_points3.scale.x = 0.9;
+    debug_inerpolated_points3.color.b = 1.0f;
+    debug_inerpolated_points3.color.a = 0.2;
+    for(size_t i = 100; i< debug_reference_points3.size(); i++)
+    {
+      
+      debug_inerpolated_points3.points.push_back(debug_reference_points[i]);
+      debug_inerpolated_points3.points.push_back(debug_reference_points3[i]);
+    }
+    points_marker_array.markers.push_back(debug_inerpolated_points3);
+    unique_id++;
+    
+     // visualize out_waypoints
+    visualization_msgs::Marker debug_inerpolated_points3_b;
+    debug_inerpolated_points3_b.lifetime = ros::Duration(0.2);
+    debug_inerpolated_points3_b.header = in_gridmap_ptr_->info.header;
+    debug_inerpolated_points3_b.ns = std::string("debug_inerpolated_points3_b");
+    debug_inerpolated_points3_b.action = visualization_msgs::Marker::MODIFY;
+    debug_inerpolated_points3_b.pose.orientation.w = 1.0;
+    debug_inerpolated_points3_b.id = unique_id;
+    debug_inerpolated_points3_b.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_inerpolated_points3_b.scale.x = 1.9;
+    debug_inerpolated_points3_b.color.g = 1.0f;
+    debug_inerpolated_points3_b.color.a = 0.2;
+    for(size_t i = 50; i< debug_reference_points3.size(); i++)
+    {
+      debug_inerpolated_points3_b.points.push_back(debug_reference_points3[i]);
+    }
+    points_marker_array.markers.push_back(debug_inerpolated_points3_b);
+    unique_id++;
     
     
     markers_pub_.publish(points_marker_array);

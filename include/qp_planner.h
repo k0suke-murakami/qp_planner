@@ -50,7 +50,10 @@ public:
               const geometry_msgs::PoseStamped& in_current_pose,
               const grid_map::GridMap& grid_map,
               const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints,
-              std::vector<autoware_msgs::Waypoint>& out_waypoints);
+              std::vector<autoware_msgs::Waypoint>& out_waypoints,
+              std::vector<geometry_msgs::Point>& debug_interpolated_points,
+              std::vector<geometry_msgs::Point>& debug_interpolated_points2,
+              std::vector<geometry_msgs::Point>& debug_interpolated_points3);
   
   
   
